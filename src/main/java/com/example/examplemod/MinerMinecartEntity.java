@@ -66,9 +66,9 @@ public class MinerMinecartEntity extends HopperMinecartEntity {
                 isPushedAfterClear = false;
                 setMotion(Vector3d.ZERO);
 
-                if (this.rand.nextInt(4) == 0) {
-                    this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
-                }
+                //if (rand.nextInt(2) == 0) {
+                    world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
+                //}
             }
         }
 

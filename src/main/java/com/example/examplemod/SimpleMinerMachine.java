@@ -16,7 +16,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.ToolType;
 
 public class SimpleMinerMachine {
-    private final static int MiningTime = 30;
+    private final static int MiningTimeShovel = 8;
+    private final static int MiningTimePickAxe = 19;
     private final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
 
@@ -227,16 +228,23 @@ public class SimpleMinerMachine {
 
         BlockState blockState = world.getBlockState(lastMiningPos);
 
-        if (blockState.isToolEffective(ToolType.PICKAXE) || blockState.isToolEffective(ToolType.SHOVEL)) {
+        boolean isPickAxe =blockState.isToolEffective(ToolType.PICKAXE);
+        boolean isShovel = blockState.isToolEffective(ToolType.SHOVEL);
+
+        int miningTime = -1;
+
+        if (isPickAxe || isShovel) {
             miningTimerTick++;
 
-            if (blockState.isToolEffective(ToolType.PICKAXE)) {
+            if (isPickAxe) {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_AXE_STRIP, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
-            } else if (blockState.isToolEffective(ToolType.SHOVEL)) {
+                miningTime = MiningTimePickAxe;
+            } else if (isShovel) {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
+                miningTime = MiningTimeShovel;
             }
 
-            if (miningTimerTick > MiningTime) {
+            if (miningTimerTick > miningTime) {
                 world.destroyBlock(lastMiningPos, true);
                 return true;
             } else {
