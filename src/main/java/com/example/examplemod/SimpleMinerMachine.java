@@ -4,9 +4,12 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Rotation;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.util.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
@@ -24,18 +27,57 @@ public class SimpleMinerMachine {
 
     private BlockPos lastTorchPos;
     private BlockPos lastMiningPos;
+    private Direction lastMiningDir;
+
     private int miningTimerTick = 0;
     private int miningCountTick = 0;
 
     public boolean IsPathClear;
-
-    private Direction lastMiningDir;
 
     public SimpleMinerMachine(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
         this.minecartEntity = minecartEntity;
         this.world = minecartEntity.world;
         this.railType = railType;
         this.torchType = torchType;
+    }
+
+    public void readAdditional(CompoundNBT compound) {
+
+        long miningPos = compound.getLong("lastMiningPos");
+
+        if(miningPos == 0){
+            lastMiningPos = null;
+        }else{
+            lastMiningPos = BlockPos.fromLong(miningPos);
+        }
+
+        long torchPos = compound.getLong("lastTorchPos");
+
+        if(torchPos == 0){
+            lastTorchPos = null;
+        }else{
+            lastTorchPos = BlockPos.fromLong(torchPos);
+        }
+
+        int dirIndex = compound.getInt("lastMiningDir");
+
+
+        if(dirIndex == -1){
+            lastMiningDir = null;
+        }else{
+             lastMiningDir = Direction.byIndex(dirIndex);
+        }
+
+        miningTimerTick = compound.getInt("miningTimerTick");
+        miningCountTick = compound.getInt("miningCountTick");
+    }
+
+    public void writeAdditional(CompoundNBT compound) {
+        compound.putLong("lastMiningPos", lastMiningPos == null ? 0 : lastMiningPos.toLong());
+        compound.putLong("lastTorchPos", lastTorchPos == null ? 0 : lastTorchPos.toLong());
+        compound.putInt("lastMiningDir", lastMiningDir == null ? -1 : lastMiningDir.getIndex());
+        compound.putInt("miningTimerTick", miningTimerTick);
+        compound.putInt("miningCountTick", miningCountTick);
     }
 
     public Vector3d getDirectoryVector() {
@@ -188,8 +230,14 @@ public class SimpleMinerMachine {
         if (blockState.isToolEffective(ToolType.PICKAXE) || blockState.isToolEffective(ToolType.SHOVEL)) {
             miningTimerTick++;
 
+            if (blockState.isToolEffective(ToolType.PICKAXE)) {
+                world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_AXE_STRIP, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
+            } else if (blockState.isToolEffective(ToolType.SHOVEL)) {
+                world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
+            }
+
             if (miningTimerTick > MiningTime) {
-                world.removeBlock(lastMiningPos, true);
+                world.destroyBlock(lastMiningPos, true);
                 return true;
             } else {
                 return false;
@@ -202,8 +250,11 @@ public class SimpleMinerMachine {
     private void createRail() {
         if (isRailTrack(lastMiningPos)) return;
 
-        world.setBlockState(lastMiningPos, net.minecraftforge.event.ForgeEventFactory.
-                fireFluidPlaceBlockEvent(world, lastMiningPos, lastMiningPos, railType.getDefaultState()), 64); //lava has 3 for water
+        world.setBlockState(lastMiningPos, railType.getDefaultState().rotate(world, lastMiningPos, getRailRotation())); //lava has 3 for water
+    }
+
+    private Rotation getRailRotation() {
+        return Rotation.NONE;
     }
 
     private void createTorch() {
@@ -212,8 +263,7 @@ public class SimpleMinerMachine {
             return;
         if (lastMiningDir == null) return;
 
-        world.setBlockState(lastMiningPos, net.minecraftforge.event.ForgeEventFactory.
-                fireFluidPlaceBlockEvent(world, lastMiningPos, lastMiningPos, torchType.getDefaultState().rotate(world, lastMiningPos, getTorchRotation())), 64); //lava has 3 for water
+        world.setBlockState(lastMiningPos,torchType.getDefaultState().rotate(world, lastMiningPos, getTorchRotation()));
 
         lastTorchPos = lastMiningPos;
     }

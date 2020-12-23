@@ -3,15 +3,17 @@ package com.example.examplemod;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
+import net.minecraft.entity.item.minecart.HopperMinecartEntity;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
 
-public class MinerMinecartEntity extends AbstractMinecartEntity {
+public class MinerMinecartEntity extends HopperMinecartEntity {
 
     private static final double PushForce = 0.1;
 
-    private final SimpleMinerMachine digger = new SimpleMinerMachine(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
+    private final SimpleMinerMachine minerMachine = new SimpleMinerMachine(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
     private boolean isPushedAfterClear;
 
     public MinerMinecartEntity(EntityType<? extends MinerMinecartEntity> furnaceCart, World world) {
@@ -19,17 +21,32 @@ public class MinerMinecartEntity extends AbstractMinecartEntity {
     }
 
     public MinerMinecartEntity(World worldIn, double x, double y, double z) {
-        super(EntityType.MINECART, worldIn, x, y, z);
+        super(worldIn, x, y, z);
+    }
+
+    public int getSizeInventory() {
+        return 5;
+    }
+
+    public void readAdditional(CompoundNBT compound) {
+        super.readAdditional(compound);
+        minerMachine.readAdditional(compound);
+    }
+
+    public void writeAdditional(CompoundNBT compound) {
+        super.writeAdditional(compound);
+        minerMachine.writeAdditional(compound);
+        isPushedAfterClear = false;
     }
 
     public void tick() {
-        digger.tick();
+        minerMachine.tick();
 
-        if(digger.IsPathClear){
+        if(minerMachine.IsPathClear){
             if(!isPushedAfterClear){
                 isPushedAfterClear = true;
                 //push it a bit to the direction
-                setMotion(digger.getDirectoryVector().scale(PushForce));
+                setMotion(minerMachine.getDirectoryVector().scale(PushForce));
             }
         }else{
             isPushedAfterClear = false;
