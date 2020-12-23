@@ -2,8 +2,8 @@ package com.example.examplemod;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
 import net.minecraft.entity.item.minecart.HopperMinecartEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.math.vector.Vector3d;
@@ -11,6 +11,7 @@ import net.minecraft.world.World;
 
 public class MinerMinecartEntity extends HopperMinecartEntity {
 
+    private static final int InventorySize = 5;
     private static final double PushForce = 0.1;
 
     private final SimpleMinerMachine minerMachine = new SimpleMinerMachine(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
@@ -25,7 +26,17 @@ public class MinerMinecartEntity extends HopperMinecartEntity {
     }
 
     public int getSizeInventory() {
-        return 5;
+        return InventorySize;
+    }
+
+    public boolean isInventoryFull() {
+        for (int i = 0; i < InventorySize; i++) {
+            ItemStack itemStack = getStackInSlot(i);
+
+            if(itemStack.getMaxStackSize() != itemStack.getCount()) return false;
+        }
+
+        return true;
     }
 
     public void readAdditional(CompoundNBT compound) {
@@ -40,20 +51,24 @@ public class MinerMinecartEntity extends HopperMinecartEntity {
     }
 
     public void tick() {
-        minerMachine.tick();
+        boolean isFull = isInventoryFull();
 
-        if(minerMachine.IsPathClear){
-            if(!isPushedAfterClear){
-                isPushedAfterClear = true;
-                //push it a bit to the direction
-                setMotion(minerMachine.getDirectoryVector().scale(PushForce));
-            }
-        }else{
-            isPushedAfterClear = false;
-            setMotion(Vector3d.ZERO);
+        if(!isFull){
+            minerMachine.tick();
 
-            if (this.rand.nextInt(4) == 0) {
-                this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
+            if(minerMachine.IsPathClear){
+                if(!isPushedAfterClear){
+                    isPushedAfterClear = true;
+                    //push it a bit to the direction
+                    setMotion(minerMachine.getDirectoryVector().scale(PushForce));
+                }
+            }else{
+                isPushedAfterClear = false;
+                setMotion(Vector3d.ZERO);
+
+                if (this.rand.nextInt(4) == 0) {
+                    this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
+                }
             }
         }
 
