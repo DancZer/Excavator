@@ -30,10 +30,14 @@ public class ExcavatorEntity extends HopperMinecartEntity {
     }
 
     public boolean isInventoryFull() {
+        if(isEmpty()){
+            return false;
+        }
+
         for (int i = 0; i < InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if(!itemStack.isEmpty() && itemStack.getMaxStackSize() != itemStack.getCount()) return false;
+            if(itemStack.isEmpty() || itemStack.getMaxStackSize() != itemStack.getCount()) return false;
         }
 
         return true;
