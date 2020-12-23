@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.danczer.continuous_mining_machine;
 
 import net.minecraft.block.AbstractRailBlock;
 import net.minecraft.block.BlockState;
