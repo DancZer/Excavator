@@ -1,4 +1,4 @@
-package com.danczer.continuous_mining_machine;
+package com.danczer.excavator;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -15,7 +15,7 @@ import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ToolType;
 
-public class SimpleMinerMachine {
+public class MinerLogic {
     private final static int MiningTimeShovel = 8;
     private final static int MiningTimePickAxe = 19;
     private final static int MiningCountZ = 3;
@@ -35,7 +35,7 @@ public class SimpleMinerMachine {
 
     public boolean IsPathClear;
 
-    public SimpleMinerMachine(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
+    public MinerLogic(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
         this.minecartEntity = minecartEntity;
         this.world = minecartEntity.world;
         this.railType = railType;

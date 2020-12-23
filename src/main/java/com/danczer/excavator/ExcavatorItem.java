@@ -1,4 +1,4 @@
-package com.danczer.continuous_mining_machine;
+package com.danczer.excavator;
 
 import net.minecraft.block.AbstractRailBlock;
 import net.minecraft.block.BlockState;
@@ -17,7 +17,7 @@ import net.minecraft.util.Direction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-public class MinerMinecartItem extends Item {
+public class ExcavatorItem extends Item {
 
     private static final IDispenseItemBehavior MINECART_DISPENSER_BEHAVIOR = new DefaultDispenseItemBehavior() {
         private final DefaultDispenseItemBehavior behaviourDefaultDispenseItem = new DefaultDispenseItemBehavior();
@@ -73,7 +73,7 @@ public class MinerMinecartItem extends Item {
         }
     };
 
-    public MinerMinecartItem(Item.Properties builder) {
+    public ExcavatorItem(Item.Properties builder) {
         super(builder);
         DispenserBlock.registerDispenseBehavior(this, MINECART_DISPENSER_BEHAVIOR);
     }
@@ -111,6 +111,6 @@ public class MinerMinecartItem extends Item {
 
     private static AbstractMinecartEntity create(World worldIn, double x, double y, double z)
     {
-        return new MinerMinecartEntity(worldIn, x, y, z);
+        return new ExcavatorEntity(worldIn, x, y, z);
     }
 }

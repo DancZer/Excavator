@@ -1,4 +1,4 @@
-package com.danczer.continuous_mining_machine;
+package com.danczer.excavator;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
@@ -9,19 +9,19 @@ import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
 
-public class MinerMinecartEntity extends HopperMinecartEntity {
+public class ExcavatorEntity extends HopperMinecartEntity {
 
     private static final int InventorySize = 5;
     private static final double PushForce = 0.1;
 
-    private final SimpleMinerMachine minerMachine = new SimpleMinerMachine(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
+    private final MinerLogic minerLogic = new MinerLogic(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
     private boolean isPushedAfterClear;
 
-    public MinerMinecartEntity(EntityType<? extends MinerMinecartEntity> furnaceCart, World world) {
+    public ExcavatorEntity(EntityType<? extends ExcavatorEntity> furnaceCart, World world) {
         super(furnaceCart, world);
     }
 
-    public MinerMinecartEntity(World worldIn, double x, double y, double z) {
+    public ExcavatorEntity(World worldIn, double x, double y, double z) {
         super(worldIn, x, y, z);
     }
 
@@ -33,7 +33,7 @@ public class MinerMinecartEntity extends HopperMinecartEntity {
         for (int i = 0; i < InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if(itemStack.getMaxStackSize() != itemStack.getCount()) return false;
+            if(!itemStack.isEmpty() && itemStack.getMaxStackSize() != itemStack.getCount()) return false;
         }
 
         return true;
@@ -41,12 +41,12 @@ public class MinerMinecartEntity extends HopperMinecartEntity {
 
     public void readAdditional(CompoundNBT compound) {
         super.readAdditional(compound);
-        minerMachine.readAdditional(compound);
+        minerLogic.readAdditional(compound);
     }
 
     public void writeAdditional(CompoundNBT compound) {
         super.writeAdditional(compound);
-        minerMachine.writeAdditional(compound);
+        minerLogic.writeAdditional(compound);
         isPushedAfterClear = false;
     }
 
@@ -54,13 +54,13 @@ public class MinerMinecartEntity extends HopperMinecartEntity {
         boolean isFull = isInventoryFull();
 
         if(!isFull){
-            minerMachine.tick();
+            minerLogic.tick();
 
-            if(minerMachine.IsPathClear){
+            if(minerLogic.IsPathClear){
                 if(!isPushedAfterClear){
                     isPushedAfterClear = true;
                     //push it a bit to the direction
-                    setMotion(minerMachine.getDirectoryVector().scale(PushForce));
+                    setMotion(minerLogic.getDirectoryVector().scale(PushForce));
                 }
             }else{
                 isPushedAfterClear = false;
