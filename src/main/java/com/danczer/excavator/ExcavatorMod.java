@@ -1,6 +1,5 @@
-package com.danczer.minercart;
+package com.danczer.excavator;
 
-import com.danczer.excavator.ExcavatorItem;
 import net.minecraft.block.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;

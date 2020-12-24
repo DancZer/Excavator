@@ -8,14 +8,18 @@ import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ExcavatorEntity extends HopperMinecartEntity {
+
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private static final int InventorySize = 5;
     private static final double PushForce = 0.1;
 
     private final MinerLogic minerLogic = new MinerLogic(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
-    private boolean isPushedAfterClear;
+    private int prevMinedBlockCount;
 
     public ExcavatorEntity(EntityType<? extends ExcavatorEntity> furnaceCart, World world) {
         super(furnaceCart, world);
@@ -37,7 +41,7 @@ public class ExcavatorEntity extends HopperMinecartEntity {
         for (int i = 0; i < InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if(itemStack.isEmpty() || itemStack.getMaxStackSize() != itemStack.getCount()) return false;
+            if(!itemStack.isEmpty() && itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
 
         return true;
@@ -46,33 +50,47 @@ public class ExcavatorEntity extends HopperMinecartEntity {
     public void readAdditional(CompoundNBT compound) {
         super.readAdditional(compound);
         minerLogic.readAdditional(compound);
+        prevMinedBlockCount = compound.getInt("prevMinedBlockCount");
     }
 
     public void writeAdditional(CompoundNBT compound) {
         super.writeAdditional(compound);
         minerLogic.writeAdditional(compound);
-        isPushedAfterClear = false;
+        compound.putInt("prevMinedBlockCount", prevMinedBlockCount);
     }
 
     public void tick() {
+
         boolean isFull = isInventoryFull();
 
-        if(!isFull){
-            minerLogic.tick();
+        LOGGER.debug("IsFull: "+isFull);
 
-            if(minerLogic.IsPathClear){
-                if(!isPushedAfterClear){
-                    isPushedAfterClear = true;
-                    //push it a bit to the direction
-                    setMotion(minerLogic.getDirectoryVector().scale(PushForce));
+        if(!isFull){
+            boolean ok = minerLogic.tick();
+
+            LOGGER.debug("Logic Is Ok: "+ok);
+            LOGGER.debug("Logic IsPathClear: "+minerLogic.IsPathClear);
+
+            if(ok){
+                if(minerLogic.IsPathClear){
+                    if(prevMinedBlockCount != minerLogic.getMinedBlockCount()){
+                        prevMinedBlockCount = minerLogic.getMinedBlockCount();
+                        //push it a bit to the direction
+                        setMotion(minerLogic.getDirectoryVector().scale(PushForce));
+                        LOGGER.debug("Logic setMotion: Push");
+                    }else{
+                        LOGGER.debug("Logic setMotion: leave");
+                    }
+                }else{
+                    LOGGER.debug("Logic setMotion: ZERO");
+                    setMotion(Vector3d.ZERO);
                 }
             }else{
-                isPushedAfterClear = false;
-                setMotion(Vector3d.ZERO);
+                LOGGER.debug("Logic setMotion: leave");
+            }
 
-                //if (rand.nextInt(2) == 0) {
-                    world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
-                //}
+            if (rand.nextInt(2) == 0) {
+                world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, -0.1D, 0.0D);
             }
         }
 
