@@ -6,7 +6,9 @@ import net.minecraft.entity.item.minecart.HopperMinecartEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.particles.ParticleTypes;
+import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -18,7 +20,8 @@ public class ExcavatorEntity extends HopperMinecartEntity {
     private static final int InventorySize = 5;
     private static final double PushForce = 0.1;
 
-    private final MinerLogic minerLogic = new MinerLogic(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
+    private final MinerLogic minerLogic = new MinerLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
+    //private final MinerLogic minerLogic = new MinerLogic(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
     private int prevMinedBlockCount;
 
     public ExcavatorEntity(EntityType<? extends ExcavatorEntity> furnaceCart, World world) {
@@ -95,6 +98,15 @@ public class ExcavatorEntity extends HopperMinecartEntity {
         }
 
         super.tick();
+    }
+
+    public void killMinecart(DamageSource source) {
+        super.killMinecart(source);
+        if (this.world.getGameRules().getBoolean(GameRules.DO_ENTITY_DROPS)) {
+            this.entityDropItem(Blocks.OBSERVER);
+            this.entityDropItem(Blocks.REDSTONE_BLOCK);
+        }
+
     }
 
     @Override

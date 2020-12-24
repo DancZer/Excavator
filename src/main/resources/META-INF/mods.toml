@@ -7,12 +7,12 @@ issueTrackerURL="https://github.com/DancZer/Excavator/issues" #optional
 [[mods]]
 modId="excavator"
 version="${file.jarVersion}"
-displayName="Excavator"
+displayName="Excavator Mod"
 updateJSONURL="http://myurl.me/"
 displayURL="https://github.com/DancZer/Excavator/wiki"
-logoFile="excavator.png"
+logoFile="logo.png"
 credits=""
-authors="Created by Laszlo Tanczos."
+authors="Created by DancZer"
 description="Add a simple excavator to help your mining."
 
 [[dependencies.excavator]]
