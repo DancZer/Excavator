@@ -19,7 +19,7 @@ import net.minecraftforge.common.ToolType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class MinerLogic {
+public class ExcavatorMinecartLogic {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -43,53 +43,55 @@ public class MinerLogic {
 
     public boolean IsPathClear;
 
-    public MinerLogic(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
+    public ExcavatorMinecartLogic(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
         this.minecartEntity = minecartEntity;
         this.world = minecartEntity.world;
         this.railType = railType;
         this.torchType = torchType;
     }
 
-    public int getMinedBlockCount(){
+    public int getMinedBlockCount() {
         return minedBlockCount;
     }
 
     public void readAdditional(CompoundNBT compound) {
 
-        long miningPos = compound.getLong("lastMiningPos");
+        long miningPos = compound.getLong("miningPos");
 
-        if(miningPos == 0){
+        if (miningPos == 0) {
             this.miningPos = null;
-        }else{
+        } else {
             this.miningPos = BlockPos.fromLong(miningPos);
         }
 
         long torchPos = compound.getLong("lastTorchPos");
 
-        if(torchPos == 0){
+        if (torchPos == 0) {
             lastTorchPos = null;
-        }else{
+        } else {
             lastTorchPos = BlockPos.fromLong(torchPos);
         }
 
-        int dirIndex = compound.getInt("lastMiningDir");
+        int dirIndex = compound.getInt("miningDir");
 
-        if(dirIndex == -1){
+        if (dirIndex == 0) {
             miningDir = null;
-        }else{
-             miningDir = Direction.byIndex(dirIndex);
+        } else {
+            miningDir = Direction.byIndex(dirIndex);
         }
 
         miningTimerTick = compound.getInt("miningTimerTick");
         miningCountTick = compound.getInt("miningCountTick");
+        minedBlockCount = compound.getInt("minedBlockCount");
     }
 
     public void writeAdditional(CompoundNBT compound) {
-        compound.putLong("lastMiningPos", miningPos == null ? 0 : miningPos.toLong());
+        compound.putLong("miningPos", miningPos == null ? 0 : miningPos.toLong());
         compound.putLong("lastTorchPos", lastTorchPos == null ? 0 : lastTorchPos.toLong());
-        compound.putInt("lastMiningDir", miningDir == null ? -1 : miningDir.getIndex());
+        compound.putInt("miningDir", miningDir == null ? 0 : miningDir.getIndex());
         compound.putInt("miningTimerTick", miningTimerTick);
         compound.putInt("miningCountTick", miningCountTick);
+        compound.putInt("minedBlockCount", minedBlockCount);
     }
 
     public Vector3d getDirectoryVector() {
@@ -111,7 +113,7 @@ public class MinerLogic {
     public boolean tick() {
         BlockPos frontPos = getMiningPlace();
 
-        LOGGER.debug("FrontPos: "+frontPos);
+        LOGGER.debug("FrontPos: " + frontPos);
 
         //stopped
         if (frontPos == null) {
@@ -120,7 +122,7 @@ public class MinerLogic {
         } else {
             IsPathClear = isFrontHarvested(frontPos);
 
-            LOGGER.debug("IsPathClear: "+IsPathClear);
+            LOGGER.debug("IsPathClear: " + IsPathClear);
             //nothing to do
             if (IsPathClear) {
                 resetMining();
@@ -155,48 +157,48 @@ public class MinerLogic {
     private BlockPos getMiningPlace() {
         BlockPos pos = minecartEntity.getPosition();
 
-        LOGGER.debug("minecartEntity pos: "+pos);
+        LOGGER.debug("minecartEntity pos: " + pos);
 
-        if(!isRailTrack(pos)) return null;
+        if (!isRailTrack(pos)) return null;
 
-        Vector3d motion =  minecartEntity.getMotion();
+        Vector3d motion = minecartEntity.getMotion();
 
-        LOGGER.debug("getAdjustedHorizontalFacing getMotion: "+motion);
+        LOGGER.debug("getAdjustedHorizontalFacing getMotion: " + motion);
 
         Direction dir;
 
-        if(motion.lengthSquared() <= 0.01d){
+        if (motion.lengthSquared() <= 0.01d) {
             dir = miningDir;
-        }else{
+        } else {
             dir = Direction.getFacingFromVector(motion.x, motion.y, motion.z);
             miningDir = dir;
         }
 
-        LOGGER.debug("minecartEntity dir: "+dir);
+        LOGGER.debug("minecartEntity dir: " + dir);
 
-        if(dir == null) return null;
+        if (dir == null) return null;
 
         BlockState bs = world.getBlockState(pos);
-        AbstractRailBlock railBlock = (AbstractRailBlock)bs.getBlock();
+        AbstractRailBlock railBlock = (AbstractRailBlock) bs.getBlock();
 
         RailShape railShape = railBlock.getRailDirection(bs, world, pos, minecartEntity);
 
         //fix detection on turns
-        if(dir == Direction.NORTH || dir == Direction.SOUTH) {
-            if (railShape == RailShape.NORTH_WEST || railShape == RailShape.SOUTH_WEST){
+        if (dir == Direction.NORTH || dir == Direction.SOUTH) {
+            if (railShape == RailShape.NORTH_WEST || railShape == RailShape.SOUTH_WEST) {
                 lastTorchPos = null;
                 dir = Direction.WEST;
             }
-            if(railShape == RailShape.NORTH_EAST || railShape == RailShape.SOUTH_EAST){
+            if (railShape == RailShape.NORTH_EAST || railShape == RailShape.SOUTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.EAST;
             }
-        }else if(dir == Direction.WEST || dir == Direction.EAST){
-            if(railShape == RailShape.NORTH_WEST || railShape == RailShape.NORTH_EAST){
+        } else if (dir == Direction.WEST || dir == Direction.EAST) {
+            if (railShape == RailShape.NORTH_WEST || railShape == RailShape.NORTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.NORTH;
             }
-            if(railShape == RailShape.SOUTH_WEST || railShape == RailShape.SOUTH_EAST) {
+            if (railShape == RailShape.SOUTH_WEST || railShape == RailShape.SOUTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.SOUTH;
             }
@@ -243,14 +245,14 @@ public class MinerLogic {
 
         BlockState blockState = world.getBlockState(miningPos);
 
-        boolean isPickAxe =blockState.isToolEffective(ToolType.PICKAXE);
+        boolean isPickAxe = blockState.isToolEffective(ToolType.PICKAXE);
         boolean isShovel = blockState.isToolEffective(ToolType.SHOVEL);
 
         int miningTime = -1;
 
         if (isPickAxe || isShovel) {
             miningTimerTick++;
-            LOGGER.debug("isPickAxe:"+isPickAxe+", isShovel:"+isShovel+", miningTimerTick:"+miningTimerTick);
+            LOGGER.debug("isPickAxe:" + isPickAxe + ", isShovel:" + isShovel + ", miningTimerTick:" + miningTimerTick);
 
             if (isPickAxe) {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_AXE_STRIP, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
@@ -292,7 +294,7 @@ public class MinerLogic {
 
         LOGGER.debug("createTorch");
 
-        world.setBlockState(miningPos,torchType.getDefaultState().rotate(world, miningPos, getTorchRotation()));
+        world.setBlockState(miningPos, torchType.getDefaultState().rotate(world, miningPos, getTorchRotation()));
 
         lastTorchPos = miningPos;
     }
