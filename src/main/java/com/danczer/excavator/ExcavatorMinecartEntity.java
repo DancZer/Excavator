@@ -2,10 +2,14 @@ package com.danczer.excavator;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.item.minecart.FurnaceMinecartEntity;
 import net.minecraft.entity.item.minecart.HopperMinecartEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.IPacket;
+import net.minecraft.network.datasync.DataParameter;
+import net.minecraft.network.datasync.DataSerializers;
+import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.vector.Vector3d;
@@ -17,6 +21,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class ExcavatorMinecartEntity extends HopperMinecartEntity {
+
+    private static final DataParameter<Boolean> MINING = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.BOOLEAN);
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -45,6 +51,11 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
         this.prevPosX = x;
         this.prevPosY = y;
         this.prevPosZ = z;
+    }
+
+    protected void registerData() {
+        super.registerData();
+        this.dataManager.register(MINING, false);
     }
 
     public int getSizeInventory() {
@@ -93,6 +104,8 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
                 LOGGER.debug("Logic IsPathClear: " + excavatorMinecartLogic.IsPathClear);
 
                 if (ok) {
+                    setMiningInProgress(prevMinedBlockCount != excavatorMinecartLogic.getMinedBlockCount());
+
                     if (excavatorMinecartLogic.IsPathClear) {
                         if (prevMinedBlockCount != excavatorMinecartLogic.getMinedBlockCount()) {
                             prevMinedBlockCount = excavatorMinecartLogic.getMinedBlockCount();
@@ -106,10 +119,7 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
                         LOGGER.debug("Logic setMotion: ZERO");
                         setMotion(Vector3d.ZERO);
 
-                        if (rand.nextInt(4) == 0) {
-                            this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
-                            LOGGER.debug("addParticle: LARGE_SMOKE");
-                        }
+
                     }
                 } else {
                     LOGGER.debug("Logic setMotion: leave");
@@ -117,8 +127,24 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
             }
         }
 
+        if (isMiningInProgress() && rand.nextInt(4) == 0) {
+            LOGGER.debug("world: "+world.getClass());
+
+            this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
+            LOGGER.debug("addParticle: LARGE_SMOKE");
+        }
+
         super.tick();
     }
+
+    protected boolean isMiningInProgress() {
+        return this.dataManager.get(MINING);
+    }
+
+    protected void setMiningInProgress(boolean powered) {
+        this.dataManager.set(MINING, powered);
+    }
+
 
     public void killMinecart(DamageSource source) {
         super.killMinecart(source);
