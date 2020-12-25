@@ -3,7 +3,6 @@ package com.danczer.excavator;
 import net.minecraft.client.renderer.entity.MinecartRenderer;
 import net.minecraft.entity.EntityClassification;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraftforge.event.RegistryEvent;
