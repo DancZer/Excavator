@@ -40,6 +40,7 @@ public class ExcavatorMinecartLogic {
     private int miningTimerTick = 0;
     private int miningCountTick = 0;
     private int minedBlockCount = 0;
+    private int previousProgress = 0;
 
     public boolean IsPathClear;
 
@@ -228,11 +229,17 @@ public class ExcavatorMinecartLogic {
     }
 
     private void beginMining(BlockPos blockPos) {
+        if(blockPos != null) {
+            world.sendBlockBreakProgress(0, blockPos, -1);
+        }
         miningPos = blockPos;
         miningTimerTick = 0;
     }
 
     private void resetMining() {
+        if(miningPos != null) {
+            world.sendBlockBreakProgress(0, miningPos, -1);
+        }
         miningPos = null;
         miningTimerTick = 0;
         miningCountTick = 0;
@@ -260,6 +267,12 @@ public class ExcavatorMinecartLogic {
             } else {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
                 miningTime = MiningTimeShovel;
+            }
+
+            int progress = (int) ((float) miningTimerTick / miningTime * 10.0F);
+            if (progress != previousProgress) {
+                world.sendBlockBreakProgress(0, miningPos, progress);
+                previousProgress = progress;
             }
 
             if (miningTimerTick > miningTime) {
