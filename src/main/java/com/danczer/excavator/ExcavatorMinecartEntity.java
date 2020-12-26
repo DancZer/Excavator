@@ -10,6 +10,7 @@ import net.minecraft.network.IPacket;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
+import net.minecraft.particles.IParticleData;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.vector.Vector3d;
@@ -23,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 public class ExcavatorMinecartEntity extends HopperMinecartEntity {
 
     private static final DataParameter<Boolean> MINING = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.BOOLEAN);
+    private static final DataParameter<Integer> HAZARD = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.VARINT);
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -56,6 +58,7 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
     protected void registerData() {
         super.registerData();
         this.dataManager.register(MINING, false);
+        this.dataManager.register(HAZARD, ExcavatorMinecartLogic.Hazard.Unknown.ordinal());
     }
 
     public int getSizeInventory() {
@@ -102,8 +105,10 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
 
                 LOGGER.debug("Logic Is Ok: " + ok);
                 LOGGER.debug("Logic IsPathClear: " + excavatorMinecartLogic.IsPathClear);
+                LOGGER.debug("Logic Hazard: " + excavatorMinecartLogic.PathHazard);
 
                 if (ok) {
+                    setMiningHazard(excavatorMinecartLogic.PathHazard);
                     setMiningInProgress(prevMinedBlockCount != excavatorMinecartLogic.getMinedBlockCount());
 
                     if (excavatorMinecartLogic.IsPathClear) {
@@ -118,33 +123,74 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
                     } else {
                         LOGGER.debug("Logic setMotion: ZERO");
                         setMotion(Vector3d.ZERO);
-
-
                     }
                 } else {
                     LOGGER.debug("Logic setMotion: leave");
+                    setMiningInProgress(false);
+                    setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
                 }
+            }else{
+                setMiningInProgress(false);
+                setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
             }
         }
 
-        if (isMiningInProgress() && rand.nextInt(4) == 0) {
-            LOGGER.debug("world: "+world.getClass());
-
-            this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
-            LOGGER.debug("addParticle: LARGE_SMOKE");
+        if (rand.nextInt(4) == 0) {
+            if(isMiningInProgress()){
+                this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
+            }else{
+                ShowHazard();
+            }
         }
 
         super.tick();
     }
 
-    protected boolean isMiningInProgress() {
+    private void ShowHazard(){
+        ExcavatorMinecartLogic.Hazard hazard = getMiningHazard();
+        LOGGER.debug("Hazard: "+hazard);
+
+        IParticleData particleType = null;
+
+        switch (hazard){
+            case Cliff:
+                particleType = ParticleTypes.ENTITY_EFFECT;
+                break;
+            case Lava:
+                particleType = ParticleTypes.FALLING_LAVA;
+                break;
+            case Water:
+                particleType = ParticleTypes.FALLING_WATER;
+                break;
+            case UnknownFluid:
+                particleType = ParticleTypes.BUBBLE;
+                break;
+            case Unknown:
+            case None:
+            default:
+                break;
+        }
+
+        if(particleType != null){
+            this.world.addParticle(particleType, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    private boolean isMiningInProgress() {
         return this.dataManager.get(MINING);
     }
 
-    protected void setMiningInProgress(boolean powered) {
+    private void setMiningInProgress(boolean powered) {
         this.dataManager.set(MINING, powered);
     }
 
+    private ExcavatorMinecartLogic.Hazard getMiningHazard() {
+        return ExcavatorMinecartLogic.Hazard.Find(this.dataManager.get(HAZARD));
+    }
+
+    private void setMiningHazard(ExcavatorMinecartLogic.Hazard hazard) {
+        this.dataManager.set(HAZARD, hazard.Value);
+    }
 
     public void killMinecart(DamageSource source) {
         super.killMinecart(source);
