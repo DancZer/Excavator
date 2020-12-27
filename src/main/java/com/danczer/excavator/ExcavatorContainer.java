@@ -26,7 +26,7 @@ public class ExcavatorContainer extends Container {
         inventory.openInventory(playerInventory.player);
 
         for(int j = 0; j < InventorySize; ++j) {
-            this.addSlot(new Slot(inventory, j, 9 + j * 18, 20));
+            this.addSlot(new Slot(inventory, j, 8 + j * 18, 20));
         }
 
         for(int l = 0; l < 3; ++l) {

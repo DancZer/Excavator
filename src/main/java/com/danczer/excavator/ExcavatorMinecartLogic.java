@@ -178,7 +178,7 @@ public class ExcavatorMinecartLogic {
                         if (tickMining()) {
                             if (miningCountTick == 0) {
                                 createRail();
-                            } else if (miningCountTick == 1) {
+                            } else if (miningCountTick == 2) {
                                 createTorch();
                             }
 
