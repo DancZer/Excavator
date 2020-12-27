@@ -1,10 +1,17 @@
 package com.danczer.excavator;
 
+import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
+import net.minecraft.entity.item.minecart.ContainerMinecartEntity;
 import net.minecraft.entity.item.minecart.FurnaceMinecartEntity;
-import net.minecraft.entity.item.minecart.HopperMinecartEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.container.Container;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.IPacket;
 import net.minecraft.network.datasync.DataParameter;
@@ -12,7 +19,11 @@ import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.particles.IParticleData;
 import net.minecraft.particles.ParticleTypes;
+import net.minecraft.tileentity.HopperTileEntity;
+import net.minecraft.tileentity.IHopper;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.EntityPredicates;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
@@ -21,23 +32,30 @@ import net.minecraftforge.fml.network.NetworkHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class ExcavatorMinecartEntity extends HopperMinecartEntity {
+import java.util.List;
+
+public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements IHopper {
 
     private static final DataParameter<Boolean> MINING = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.BOOLEAN);
     private static final DataParameter<Integer> HAZARD = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.VARINT);
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final int InventorySize = 5;
     private static final double PushForce = 0.1;
 
-    private final ExcavatorMinecartLogic excavatorMinecartLogic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
-    //private final MinerLogic minerLogic = new MinerLogic(this, Blocks.POWERED_RAIL, Blocks.REDSTONE_WALL_TORCH);
+    private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
 
+    private int prevPushMinedBlockCount;
     private int prevMinedBlockCount;
+    private int prevPlacedTrackCount;
+    private int prevPlacedTorchCount;
+
+    private boolean isBlocked = true;
+    private int transferTicker = -1;
+    private final BlockPos lastPosition = BlockPos.ZERO;
 
     public ExcavatorMinecartEntity(FMLPlayMessages.SpawnEntity packet, World worldIn){
-        super(ExcavatorMod.EXCAVATOR, worldIn);
+        super(ExcavatorMod.EXCAVATOR_ENTITY, worldIn);
     }
 
     public ExcavatorMinecartEntity(EntityType<? extends ExcavatorMinecartEntity> type, World worldIn) {
@@ -45,14 +63,7 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
     }
 
     public ExcavatorMinecartEntity(World worldIn, double x, double y, double z) {
-        super(ExcavatorMod.EXCAVATOR, worldIn);
-        preventEntitySpawning = false;
-
-        this.setPosition(x, y, z);
-        this.setMotion(Vector3d.ZERO);
-        this.prevPosX = x;
-        this.prevPosY = y;
-        this.prevPosZ = z;
+        super(ExcavatorMod.EXCAVATOR_ENTITY, x, y, z, worldIn);
     }
 
     protected void registerData() {
@@ -61,8 +72,63 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
         this.dataManager.register(HAZARD, ExcavatorMinecartLogic.Hazard.Unknown.ordinal());
     }
 
+    public AbstractMinecartEntity.Type getMinecartType() {
+        return null;
+    }
+
+    public BlockState getDefaultDisplayTile() {
+        return Blocks.HOPPER.getDefaultState();
+    }
+
+    public int getDefaultDisplayTileOffset() {
+        return 1;
+    }
+
     public int getSizeInventory() {
-        return InventorySize;
+        return ExcavatorContainer.InventorySize;
+    }
+
+    public void onActivatorRailPass(int x, int y, int z, boolean receivingPower) {
+        boolean flag = !receivingPower;
+        if (flag != this.getBlocked()) {
+            this.setBlocked(flag);
+        }
+    }
+
+    public boolean getBlocked() {
+        return this.isBlocked;
+    }
+
+    /**
+     * Set whether this hopper minecart is being blocked by an activator rail.
+     */
+    public void setBlocked(boolean blocked) {
+        this.isBlocked = blocked;
+    }
+
+    /**
+     * Returns the worldObj for this tileEntity.
+     */
+    public World getWorld() {
+        return this.world;
+    }
+
+    public double getXPos() {
+        return this.getPosX();
+    }
+
+    /**
+     * Gets the world Y position for this hopper entity.
+     */
+    public double getYPos() {
+        return this.getPosY() + 0.5D;
+    }
+
+    /**
+     * Gets the world Z position for this hopper entity.
+     */
+    public double getZPos() {
+        return this.getPosZ();
     }
 
     public boolean isInventoryFull() {
@@ -70,52 +136,68 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
             return false;
         }
 
-        for (int i = 0; i < InventorySize; i++) {
+        for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if (!itemStack.isEmpty() && itemStack.getCount() < itemStack.getMaxStackSize()) return false;
+            if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
 
         return true;
     }
 
-    public void readAdditional(CompoundNBT compound) {
-        super.readAdditional(compound);
-        excavatorMinecartLogic.readAdditional(compound);
-    }
-
     public void writeAdditional(CompoundNBT compound) {
         super.writeAdditional(compound);
-        excavatorMinecartLogic.writeAdditional(compound);
+        logic.writeAdditional(compound);
+
+        compound.putInt("TransferCooldown", this.transferTicker);
+        compound.putBoolean("Enabled", this.isBlocked);
     }
 
-    @Override
-    public IPacket<?> createSpawnPacket() {
-        return NetworkHooks.getEntitySpawningPacket(this);
+    public void readAdditional(CompoundNBT compound) {
+        super.readAdditional(compound);
+        logic.readAdditional(compound);
+
+        this.transferTicker = compound.getInt("TransferCooldown");
+        this.isBlocked = compound.contains("Enabled") ? compound.getBoolean("Enabled") : true;
     }
 
     public void tick() {
+        excavatorTick();
+
+        super.tick();
+
+        hopperTick();
+    }
+
+    private void excavatorTick(){
         if (!this.world.isRemote && this.isAlive() && this.getBlocked()) {
             boolean isFull = isInventoryFull();
 
-            LOGGER.debug("IsFull: " + isFull);
+            boolean hasRails = hasInventoryItem(logic.railType.asItem());
+            boolean hasTorch = hasInventoryItem(logic.torchType.asItem());
+            boolean hasRedStoneDust = hasInventoryItem(Items.REDSTONE);
 
-            if (!isFull) {
-                boolean ok = excavatorMinecartLogic.tick();
+            LOGGER.debug("isFull: " + isFull);
+            LOGGER.debug("hasRails: " + hasRails);
+            LOGGER.debug("hasTorch: " + hasTorch);
+            LOGGER.debug("hasRedStoneDust: " + hasRedStoneDust);
+
+            if (!isFull && hasRails && hasTorch && hasRedStoneDust) {
+                boolean ok = logic.tick();
 
                 LOGGER.debug("Logic Is Ok: " + ok);
-                LOGGER.debug("Logic IsPathClear: " + excavatorMinecartLogic.IsPathClear);
-                LOGGER.debug("Logic Hazard: " + excavatorMinecartLogic.PathHazard);
+                LOGGER.debug("Logic IsPathClear: " + logic.IsPathClear);
+                LOGGER.debug("Logic Hazard: " + logic.PathHazard);
 
                 if (ok) {
-                    setMiningHazard(excavatorMinecartLogic.PathHazard);
-                    setMiningInProgress(prevMinedBlockCount != excavatorMinecartLogic.getMinedBlockCount());
+                    setMiningHazard(logic.PathHazard);
+                    setMiningInProgress(prevMinedBlockCount != logic.getMinedBlockCount());
 
-                    if (excavatorMinecartLogic.IsPathClear) {
-                        if (prevMinedBlockCount != excavatorMinecartLogic.getMinedBlockCount()) {
-                            prevMinedBlockCount = excavatorMinecartLogic.getMinedBlockCount();
+                    if (logic.IsPathClear) {
+                        if (prevPushMinedBlockCount != logic.getMinedBlockCount()) {
+                            prevPushMinedBlockCount = logic.getMinedBlockCount();
                             //push it a bit to the direction
-                            setMotion(excavatorMinecartLogic.getDirectoryVector().scale(PushForce));
+                            setMotion(logic.getDirectoryVector().scale(PushForce));
                             LOGGER.debug("Logic setMotion: Push");
                         } else {
                             LOGGER.debug("Logic setMotion: leave");
@@ -131,7 +213,32 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
                 }
             }else{
                 setMiningInProgress(false);
-                setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
+                if(!hasRails || !hasTorch || !hasRedStoneDust){
+                    setMiningHazard(ExcavatorMinecartLogic.Hazard.MissingFuel);
+                }else{
+                    setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
+                }
+
+            }
+
+            if (prevMinedBlockCount != logic.getMinedBlockCount()) {
+                prevMinedBlockCount = logic.getMinedBlockCount();
+
+                if(prevMinedBlockCount % ExcavatorMinecartLogic.MiningCountZ == 0){
+                    reduceInventoryItem(Items.REDSTONE);
+                }
+            }
+
+            if(prevPlacedTorchCount != logic.getPlacedTorchCount()){
+                prevPlacedTorchCount = logic.getPlacedTorchCount();
+
+                reduceInventoryItem(logic.torchType.asItem());
+            }
+
+            if(prevPlacedTrackCount != logic.getPlacedTrackCount()){
+                prevPlacedTrackCount = logic.getPlacedTrackCount();
+
+                reduceInventoryItem(logic.railType.asItem());
             }
         }
 
@@ -142,8 +249,30 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
                 ShowHazard();
             }
         }
+    }
 
-        super.tick();
+    private void reduceInventoryItem(Item item){
+        for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
+            ItemStack itemStack = getStackInSlot(i);
+
+            if (!itemStack.isEmpty() && itemStack.getItem() == item){
+                itemStack.shrink(1);
+                return;
+            }
+        }
+    }
+
+    private boolean hasInventoryItem(Item item){
+        boolean found = false;
+        for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
+            ItemStack itemStack = getStackInSlot(i);
+
+            if (!itemStack.isEmpty() && itemStack.getItem() == item && !found){
+                found = true;
+            }
+        }
+
+        return found;
     }
 
     private void ShowHazard(){
@@ -164,6 +293,9 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
                 break;
             case UnknownFluid:
                 particleType = ParticleTypes.BUBBLE;
+                break;
+            case MissingFuel:
+                particleType = ParticleTypes.WITCH;
                 break;
             case Unknown:
             case None:
@@ -192,12 +324,66 @@ public class ExcavatorMinecartEntity extends HopperMinecartEntity {
         this.dataManager.set(HAZARD, hazard.Value);
     }
 
+
+    private void hopperTick(){
+        if (!this.world.isRemote && this.isAlive() && this.getBlocked()) {
+            BlockPos blockpos = this.getPosition();
+            if (blockpos.equals(this.lastPosition)) {
+                --this.transferTicker;
+            } else {
+                this.setTransferTicker(0);
+            }
+
+            if (!this.canTransfer()) {
+                this.setTransferTicker(0);
+                if (this.captureDroppedItems()) {
+                    this.setTransferTicker(4);
+                    this.markDirty();
+                }
+            }
+        }
+    }
+
+    public void setTransferTicker(int transferTickerIn) {
+        this.transferTicker = transferTickerIn;
+    }
+
+    /**
+     * Returns whether the hopper cart can currently transfer an item.
+     */
+    public boolean canTransfer() {
+        return this.transferTicker > 0;
+    }
+
+    public boolean captureDroppedItems() {
+        if (HopperTileEntity.pullItems(this)) {
+            return true;
+        } else {
+            List<ItemEntity> list = this.world.getEntitiesWithinAABB(ItemEntity.class, this.getBoundingBox().grow(0.25D, 0.0D, 0.25D), EntityPredicates.IS_ALIVE);
+            if (!list.isEmpty()) {
+                HopperTileEntity.captureItem(this, list.get(0));
+            }
+
+            return false;
+        }
+    }
+
     public void killMinecart(DamageSource source) {
         super.killMinecart(source);
         if (this.world.getGameRules().getBoolean(GameRules.DO_ENTITY_DROPS)) {
             this.entityDropItem(Blocks.OBSERVER);
             this.entityDropItem(Blocks.REDSTONE_BLOCK);
+            this.entityDropItem(Blocks.HOPPER);
         }
-
     }
+
+    public Container createContainer(int id, PlayerInventory playerInventoryIn) {
+        return new ExcavatorContainer(id, playerInventoryIn, this);
+    }
+
+    @Override
+    public IPacket<?> createSpawnPacket() {
+        return NetworkHooks.getEntitySpawningPacket(this);
+    }
+
 }

@@ -1,8 +1,10 @@
 package com.danczer.excavator;
 
+import net.minecraft.client.gui.ScreenManager;
 import net.minecraft.client.renderer.entity.MinecartRenderer;
 import net.minecraft.entity.EntityClassification;
 import net.minecraft.entity.EntityType;
+import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraftforge.event.RegistryEvent;
@@ -14,7 +16,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 @Mod("excavator")
 public class ExcavatorMod {
-    public static EntityType<ExcavatorMinecartEntity> EXCAVATOR;
+    public static EntityType<ExcavatorMinecartEntity> EXCAVATOR_ENTITY;
+    public static ContainerType<ExcavatorContainer> EXCAVATOR_CONTAINER;
 
     public ExcavatorMod()
     {
@@ -23,12 +26,20 @@ public class ExcavatorMod {
 
     @SubscribeEvent
     public static void setupClient(final FMLClientSetupEvent event) {
-        RenderingRegistry.registerEntityRenderingHandler(EXCAVATOR, MinecartRenderer<ExcavatorMinecartEntity>::new);
+        RenderingRegistry.registerEntityRenderingHandler(EXCAVATOR_ENTITY, MinecartRenderer<ExcavatorMinecartEntity>::new);
+
+        ScreenManager.registerFactory(EXCAVATOR_CONTAINER, ExcavatorScreen::new);
     }
 
     @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
     public static class RegistryEvents {
 
+        @SubscribeEvent
+        public static void onContainersRegistry(final RegistryEvent.Register<ContainerType<?>> event) {
+            EXCAVATOR_CONTAINER = new ContainerType<>(ExcavatorContainer::new);
+            EXCAVATOR_CONTAINER.setRegistryName("excavator");
+            event.getRegistry().register(EXCAVATOR_CONTAINER);
+        }
         @SubscribeEvent
         public static void onBlocksRegistry(final RegistryEvent.Register<Item> event) {
         }
@@ -47,7 +58,7 @@ public class ExcavatorMod {
 
         @SubscribeEvent
         public static void onEntitiesRegistry(final RegistryEvent.Register<EntityType<?>> event) {
-            EXCAVATOR = EntityType.Builder.
+            EXCAVATOR_ENTITY = EntityType.Builder.
                     <ExcavatorMinecartEntity>create(ExcavatorMinecartEntity::new, EntityClassification.MISC)
                     .setCustomClientFactory(ExcavatorMinecartEntity::new)
                     .setShouldReceiveVelocityUpdates(true)
@@ -55,9 +66,9 @@ public class ExcavatorMod {
                     .trackingRange(8)
                     .build("excavator_minecart");
 
-            EXCAVATOR.setRegistryName("excavator_minecart");
+            EXCAVATOR_ENTITY.setRegistryName("excavator_minecart");
 
-            event.getRegistry().register(EXCAVATOR);
+            event.getRegistry().register(EXCAVATOR_ENTITY);
         }
     }
 }

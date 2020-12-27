@@ -24,7 +24,7 @@ import org.apache.logging.log4j.Logger;
 public class ExcavatorMinecartLogic {
 
     public enum Hazard{
-        Unknown(0), None(1), Cliff(2), Lava(3), Water(4), UnknownFluid(5);
+        Unknown(0), None(1), Cliff(2), Lava(3), Water(4), UnknownFluid(5), MissingFuel(6);
 
         public final int Value;
 
@@ -39,6 +39,7 @@ public class ExcavatorMinecartLogic {
                 case 3: return Hazard.Lava;
                 case 4: return Hazard.Water;
                 case 5: return Hazard.UnknownFluid;
+                case 6: return Hazard.MissingFuel;
                 default:
                     return Hazard.Unknown;
             }
@@ -49,13 +50,13 @@ public class ExcavatorMinecartLogic {
 
     private final static int MiningTimeShovel = 8;
     private final static int MiningTimePickAxe = 19;
-    private final static int MiningCountZ = 3;
+    public final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
 
     private final World world;
     private final AbstractMinecartEntity minecartEntity;
-    private final Block railType;
-    private final Block torchType;
+    public final Block railType;
+    public final Block torchType;
 
     private BlockPos lastTorchPos;
     private BlockPos miningPos;
@@ -65,6 +66,10 @@ public class ExcavatorMinecartLogic {
     private int miningCountTick = 0;
     private int minedBlockCount = 0;
     private int previousProgress = 0;
+
+    private int placedTrackCount = 0;
+    private int placedTorchCount = 0;
+    private boolean isMinecartTurning;
 
     public boolean IsPathClear;
     public Hazard PathHazard = Hazard.Unknown;
@@ -78,6 +83,14 @@ public class ExcavatorMinecartLogic {
 
     public int getMinedBlockCount() {
         return minedBlockCount;
+    }
+
+    public int getPlacedTrackCount() {
+        return placedTrackCount;
+    }
+
+    public int getPlacedTorchCount() {
+        return placedTorchCount;
     }
 
     public void readAdditional(CompoundNBT compound) {
@@ -194,16 +207,16 @@ public class ExcavatorMinecartLogic {
 
         Vector3d motion = minecartEntity.getMotion();
 
-        LOGGER.debug("getAdjustedHorizontalFacing getMotion: " + motion);
+        LOGGER.debug("minecartEntity getMotion: " + motion);
 
         Direction dir;
 
-        if (motion.lengthSquared() <= 0.01d) {
+        if (motion.lengthSquared() <= 0.0001d) {
             dir = miningDir;
         } else {
             dir = Direction.getFacingFromVector(motion.x, motion.y, motion.z);
-            miningDir = dir;
         }
+        miningDir = dir;
 
         LOGGER.debug("minecartEntity dir: " + dir);
 
@@ -214,26 +227,36 @@ public class ExcavatorMinecartLogic {
 
         RailShape railShape = railBlock.getRailDirection(bs, world, pos, minecartEntity);
 
+        LOGGER.debug("minecartEntity railShape: " + railShape);
+        isMinecartTurning = false;
+
         //fix detection on turns
         if (dir == Direction.NORTH || dir == Direction.SOUTH) {
             if (railShape == RailShape.NORTH_WEST || railShape == RailShape.SOUTH_WEST) {
                 lastTorchPos = null;
                 dir = Direction.WEST;
+                isMinecartTurning = true;
             }
             if (railShape == RailShape.NORTH_EAST || railShape == RailShape.SOUTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.EAST;
+                isMinecartTurning = true;
             }
         } else if (dir == Direction.WEST || dir == Direction.EAST) {
             if (railShape == RailShape.NORTH_WEST || railShape == RailShape.NORTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.NORTH;
+                isMinecartTurning = true;
             }
             if (railShape == RailShape.SOUTH_WEST || railShape == RailShape.SOUTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.SOUTH;
+                isMinecartTurning = true;
             }
         }
+
+        LOGGER.debug("minecartEntity isMinecartTurning: " + isMinecartTurning);
+        LOGGER.debug("minecartEntity adjusted dir: " + dir);
 
         return pos.offset(dir);
     }
@@ -383,7 +406,8 @@ public class ExcavatorMinecartLogic {
 
         LOGGER.debug("createRail");
 
-        world.setBlockState(miningPos, railType.getDefaultState().rotate(world, miningPos, getRailRotation())); //lava has 3 for water
+        world.setBlockState(miningPos, railType.getDefaultState().rotate(world, miningPos, getRailRotation()));
+        placedTrackCount++;
     }
 
     private Rotation getRailRotation() {
@@ -399,6 +423,7 @@ public class ExcavatorMinecartLogic {
         LOGGER.debug("createTorch");
 
         world.setBlockState(miningPos, torchType.getDefaultState().rotate(world, miningPos, getTorchRotation()));
+        placedTorchCount++;
 
         lastTorchPos = miningPos;
     }
