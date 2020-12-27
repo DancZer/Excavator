@@ -366,7 +366,7 @@ public class ExcavatorMinecartLogic {
 
         BlockState blockState = world.getBlockState(miningPos);
 
-        boolean isPickAxe = blockState.isToolEffective(ToolType.PICKAXE);
+        boolean isPickAxe = blockState.isToolEffective(ToolType.PICKAXE) || blockState.getBlock() == Blocks.REDSTONE_ORE;
         boolean isShovel = blockState.isToolEffective(ToolType.SHOVEL);
 
         int miningTime = -1;
