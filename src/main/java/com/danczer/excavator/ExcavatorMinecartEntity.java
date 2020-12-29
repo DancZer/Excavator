@@ -1,5 +1,7 @@
 package com.danczer.excavator;
 
+import net.minecraft.block.AbstractBlock;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
@@ -9,6 +11,7 @@ import net.minecraft.entity.item.minecart.ContainerMinecartEntity;
 import net.minecraft.entity.item.minecart.FurnaceMinecartEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Container;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -26,6 +29,7 @@ import net.minecraft.util.EntityPredicates;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.GameRules;
+import net.minecraft.world.GameType;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.FMLPlayMessages;
 import net.minecraftforge.fml.network.NetworkHooks;
@@ -54,16 +58,24 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     private int transferTicker = -1;
     private final BlockPos lastPosition = BlockPos.ZERO;
 
-    public ExcavatorMinecartEntity(FMLPlayMessages.SpawnEntity packet, World worldIn){
+    private float collectBlockWithHardness;
+
+    public ExcavatorMinecartEntity(FMLPlayMessages.SpawnEntity packet, World worldIn) {
         super(ExcavatorMod.EXCAVATOR_ENTITY, worldIn);
+
+        collectBlockWithHardness = Blocks.IRON_ORE.getDefaultState().getBlockHardness(world, getPosition());
     }
 
     public ExcavatorMinecartEntity(EntityType<? extends ExcavatorMinecartEntity> type, World worldIn) {
         super(type, worldIn);
+
+        collectBlockWithHardness = Blocks.IRON_ORE.getDefaultState().getBlockHardness(world, getPosition());
     }
 
     public ExcavatorMinecartEntity(World worldIn, double x, double y, double z) {
         super(ExcavatorMod.EXCAVATOR_ENTITY, x, y, z, worldIn);
+
+        collectBlockWithHardness = Blocks.IRON_ORE.getDefaultState().getBlockHardness(world, getPosition());
     }
 
     protected void registerData() {
@@ -169,13 +181,24 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         hopperTick();
     }
 
-    private void excavatorTick(){
+    private boolean isCreativeMode()
+    {
+        return world.getServer() != null && world.getServer().getGameType() != GameType.CREATIVE;
+    }
+
+    private void excavatorTick() {
         if (!this.world.isRemote && this.isAlive() && this.getBlocked()) {
             boolean isFull = isInventoryFull();
 
-            boolean hasRails = hasInventoryItem(logic.railType.asItem());
-            boolean hasTorch = hasInventoryItem(logic.torchType.asItem());
-            boolean hasRedStoneDust = hasInventoryItem(Items.REDSTONE);
+            boolean hasRails = true;
+            boolean hasTorch = true;
+            boolean hasRedStoneDust = true;
+
+            if (!isCreativeMode()) {
+                hasRails = hasInventoryItem(logic.railType.asItem());
+                hasTorch = hasInventoryItem(logic.torchType.asItem());
+                hasRedStoneDust = hasInventoryItem(Items.REDSTONE);
+            }
 
             LOGGER.debug("isFull: " + isFull);
             LOGGER.debug("hasRails: " + hasRails);
@@ -211,63 +234,65 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                     setMiningInProgress(false);
                     setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
                 }
-            }else{
+            } else {
                 setMiningInProgress(false);
-                if(!hasRails || !hasTorch || !hasRedStoneDust){
+                if (!hasRails || !hasTorch || !hasRedStoneDust) {
                     setMiningHazard(ExcavatorMinecartLogic.Hazard.MissingFuel);
-                }else{
+                } else {
                     setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
                 }
 
             }
 
-            if (prevMinedBlockCount != logic.getMinedBlockCount()) {
-                prevMinedBlockCount = logic.getMinedBlockCount();
+            if (!isCreativeMode()) {
+                if (prevMinedBlockCount != logic.getMinedBlockCount()) {
+                    prevMinedBlockCount = logic.getMinedBlockCount();
 
-                if(prevMinedBlockCount % ExcavatorMinecartLogic.MiningCountZ == 0){
-                    reduceInventoryItem(Items.REDSTONE);
+                    if (prevMinedBlockCount % ExcavatorMinecartLogic.MiningCountZ == 0) {
+                        reduceInventoryItem(Items.REDSTONE);
+                    }
                 }
-            }
 
-            if(prevPlacedTorchCount != logic.getPlacedTorchCount()){
-                prevPlacedTorchCount = logic.getPlacedTorchCount();
+                if (prevPlacedTorchCount != logic.getPlacedTorchCount()) {
+                    prevPlacedTorchCount = logic.getPlacedTorchCount();
 
-                reduceInventoryItem(logic.torchType.asItem());
-            }
+                    reduceInventoryItem(logic.torchType.asItem());
+                }
 
-            if(prevPlacedTrackCount != logic.getPlacedTrackCount()){
-                prevPlacedTrackCount = logic.getPlacedTrackCount();
+                if (prevPlacedTrackCount != logic.getPlacedTrackCount()) {
+                    prevPlacedTrackCount = logic.getPlacedTrackCount();
 
-                reduceInventoryItem(logic.railType.asItem());
+                    reduceInventoryItem(logic.railType.asItem());
+                }
             }
         }
 
         if (rand.nextInt(4) == 0) {
-            if(isMiningInProgress()){
+            if (isMiningInProgress()) {
                 this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
-            }else{
+            } else {
                 ShowHazard();
             }
         }
     }
 
-    private void reduceInventoryItem(Item item){
+    private void reduceInventoryItem(Item item) {
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if (!itemStack.isEmpty() && itemStack.getItem() == item){
+            if (!itemStack.isEmpty() && itemStack.getItem() == item) {
                 itemStack.shrink(1);
                 return;
             }
         }
     }
 
-    private boolean hasInventoryItem(Item item){
+    private boolean hasInventoryItem(Item item) {
         boolean found = false;
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if (!itemStack.isEmpty() && itemStack.getItem() == item && !found){
+            if (!itemStack.isEmpty() && itemStack.getItem() == item && !found) {
                 found = true;
             }
         }
@@ -275,13 +300,13 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         return found;
     }
 
-    private void ShowHazard(){
+    private void ShowHazard() {
         ExcavatorMinecartLogic.Hazard hazard = getMiningHazard();
-        LOGGER.debug("Hazard: "+hazard);
+        LOGGER.debug("Hazard: " + hazard);
 
         IParticleData particleType = null;
 
-        switch (hazard){
+        switch (hazard) {
             case Cliff:
                 particleType = ParticleTypes.ENTITY_EFFECT;
                 break;
@@ -303,7 +328,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                 break;
         }
 
-        if(particleType != null){
+        if (particleType != null) {
             this.world.addParticle(particleType, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
         }
     }
@@ -325,7 +350,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     }
 
 
-    private void hopperTick(){
+    private void hopperTick() {
         if (!this.world.isRemote && this.isAlive() && this.getBlocked()) {
             BlockPos blockpos = this.getPosition();
             if (blockpos.equals(this.lastPosition)) {
@@ -360,8 +385,18 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
             return true;
         } else {
             List<ItemEntity> list = this.world.getEntitiesWithinAABB(ItemEntity.class, this.getBoundingBox().grow(0.25D, 0.0D, 0.25D), EntityPredicates.IS_ALIVE);
-            if (!list.isEmpty()) {
-                HopperTileEntity.captureItem(this, list.get(0));
+
+            for (ItemEntity itemEntity : list) {
+                Item item = itemEntity.getItem().getItem();
+
+                if(item instanceof BlockItem){
+                    BlockItem blockItem = (BlockItem)item;
+                    BlockState blockState = blockItem.getBlock().getDefaultState();
+
+                    if(blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= collectBlockWithHardness){
+                        HopperTileEntity.captureItem(this, itemEntity);
+                    }
+                }
             }
 
             return false;
