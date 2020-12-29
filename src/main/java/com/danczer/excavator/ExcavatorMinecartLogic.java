@@ -6,6 +6,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
 import net.minecraft.fluid.FluidState;
+import net.minecraft.item.ToolItem;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.state.properties.RailShape;
 import net.minecraft.tags.BlockTags;
@@ -20,6 +21,9 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.ToolType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ExcavatorMinecartLogic {
 
@@ -55,8 +59,10 @@ public class ExcavatorMinecartLogic {
 
     private final World world;
     private final AbstractMinecartEntity minecartEntity;
-    public final Block railType;
-    public final Block torchType;
+
+    public Block railType;
+    public Block torchType;
+    public final List<ToolItem> toolItemList;
 
     private BlockPos lastTorchPos;
     private BlockPos miningPos;
@@ -69,16 +75,15 @@ public class ExcavatorMinecartLogic {
 
     private int placedTrackCount = 0;
     private int placedTorchCount = 0;
-    private boolean isMinecartTurning;
 
     public boolean IsPathClear;
     public Hazard PathHazard = Hazard.Unknown;
 
-    public ExcavatorMinecartLogic(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
+    public ExcavatorMinecartLogic(AbstractMinecartEntity minecartEntity) {
         this.minecartEntity = minecartEntity;
         this.world = minecartEntity.world;
-        this.railType = railType;
-        this.torchType = torchType;
+
+        toolItemList = new ArrayList<>();
     }
 
     public int getMinedBlockCount() {
@@ -150,6 +155,14 @@ public class ExcavatorMinecartLogic {
     }
 
     public boolean tick() {
+        IsPathClear = false;
+        PathHazard = Hazard.Unknown;
+
+        if(railType == null || torchType == null || toolItemList.isEmpty()){
+            PathHazard = Hazard.MissingFuel;
+            return false;
+        }
+
         BlockPos frontPos = getMiningPlace();
 
         LOGGER.debug("FrontPos: " + frontPos);
@@ -228,7 +241,7 @@ public class ExcavatorMinecartLogic {
         RailShape railShape = railBlock.getRailDirection(bs, world, pos, minecartEntity);
 
         LOGGER.debug("minecartEntity railShape: " + railShape);
-        isMinecartTurning = false;
+        boolean isMinecartTurning = false;
 
         //fix detection on turns
         if (dir == Direction.NORTH || dir == Direction.SOUTH) {
