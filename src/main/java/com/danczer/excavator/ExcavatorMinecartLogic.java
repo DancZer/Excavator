@@ -362,12 +362,12 @@ public class ExcavatorMinecartLogic {
     private boolean tickMining() {
         if (isBlockHarvested(miningPos)) return true;
 
-        LOGGER.debug("tickMining");
-
         BlockState blockState = world.getBlockState(miningPos);
 
-        boolean isPickAxe = blockState.isToolEffective(ToolType.PICKAXE) || blockState.getBlock() == Blocks.REDSTONE_ORE;
-        boolean isShovel = blockState.isToolEffective(ToolType.SHOVEL);
+        LOGGER.debug("tickMining on "+blockState.getBlock().getRegistryName()+" at "+miningPos+", getRequiresTool: "+blockState.getRequiresTool()+" ,getHarvestTool: "+(blockState.getHarvestTool() != null ? blockState.getHarvestTool().getName() : "nothing")+ ", getBlockHardness: "+blockState.getBlockHardness(world, miningPos));
+
+        boolean isPickAxe = (blockState.getHarvestTool() == ToolType.PICKAXE && blockState.getBlockHardness(world, miningPos) <= 10f) || blockState.getBlock() == Blocks.NETHER_QUARTZ_ORE;
+        boolean isShovel = blockState.getHarvestTool() == ToolType.SHOVEL && blockState.getBlockHardness(world, miningPos) <= 10f;
 
         int miningTime = -1;
 

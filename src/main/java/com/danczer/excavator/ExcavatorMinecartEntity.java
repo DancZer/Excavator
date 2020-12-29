@@ -46,6 +46,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     private static final Logger LOGGER = LogManager.getLogger();
 
     private static final double PushForce = 0.2;
+    private static final double CollectBlockWithHardness = 3f;
 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
 
@@ -58,24 +59,16 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     private int transferTicker = -1;
     private final BlockPos lastPosition = BlockPos.ZERO;
 
-    private float collectBlockWithHardness;
-
     public ExcavatorMinecartEntity(FMLPlayMessages.SpawnEntity packet, World worldIn) {
         super(ExcavatorMod.EXCAVATOR_ENTITY, worldIn);
-
-        collectBlockWithHardness = Blocks.IRON_ORE.getDefaultState().getBlockHardness(world, getPosition());
     }
 
     public ExcavatorMinecartEntity(EntityType<? extends ExcavatorMinecartEntity> type, World worldIn) {
         super(type, worldIn);
-
-        collectBlockWithHardness = Blocks.IRON_ORE.getDefaultState().getBlockHardness(world, getPosition());
     }
 
     public ExcavatorMinecartEntity(World worldIn, double x, double y, double z) {
         super(ExcavatorMod.EXCAVATOR_ENTITY, x, y, z, worldIn);
-
-        collectBlockWithHardness = Blocks.IRON_ORE.getDefaultState().getBlockHardness(world, getPosition());
     }
 
     protected void registerData() {
@@ -393,13 +386,16 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
             for (ItemEntity itemEntity : list) {
                 Item item = itemEntity.getItem().getItem();
 
+                //collect only usefull blocks
                 if(item instanceof BlockItem){
                     BlockItem blockItem = (BlockItem)item;
                     BlockState blockState = blockItem.getBlock().getDefaultState();
 
-                    if(blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= collectBlockWithHardness){
+                    if(blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= CollectBlockWithHardness){
                         HopperTileEntity.captureItem(this, itemEntity);
                     }
+                }else{
+                    HopperTileEntity.captureItem(this, itemEntity);
                 }
             }
 
