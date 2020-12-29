@@ -1,7 +1,5 @@
 package com.danczer.excavator;
 
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
@@ -144,9 +142,9 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if(itemStack.getItem() == logic.railType.asItem()) continue;
-            if(itemStack.getItem() == logic.torchType.asItem()) continue;
-            if(itemStack.getItem() == Items.REDSTONE) continue;
+            if (itemStack.getItem() == logic.railType.asItem()) continue;
+            if (itemStack.getItem() == logic.torchType.asItem()) continue;
+            if (itemStack.getItem() == Items.REDSTONE) continue;
 
             if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
@@ -178,8 +176,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         hopperTick();
     }
 
-    private boolean isCreativeMode()
-    {
+    private boolean isCreativeMode() {
         return world.getServer() != null && world.getServer().getGameType() == GameType.CREATIVE;
     }
 
@@ -387,14 +384,14 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                 Item item = itemEntity.getItem().getItem();
 
                 //collect only usefull blocks
-                if(item instanceof BlockItem){
-                    BlockItem blockItem = (BlockItem)item;
+                if (item instanceof BlockItem) {
+                    BlockItem blockItem = (BlockItem) item;
                     BlockState blockState = blockItem.getBlock().getDefaultState();
 
-                    if(blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= CollectBlockWithHardness){
+                    if (blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= CollectBlockWithHardness) {
                         HopperTileEntity.captureItem(this, itemEntity);
                     }
-                }else{
+                } else {
                     HopperTileEntity.captureItem(this, itemEntity);
                 }
             }

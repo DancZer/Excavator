@@ -23,7 +23,7 @@ import org.apache.logging.log4j.Logger;
 
 public class ExcavatorMinecartLogic {
 
-    public enum Hazard{
+    public enum Hazard {
         Unknown(0), None(1), Cliff(2), Lava(3), Water(4), UnknownFluid(5), MissingFuel(6);
 
         public final int Value;
@@ -32,14 +32,20 @@ public class ExcavatorMinecartLogic {
             Value = value;
         }
 
-        public static Hazard Find(int value){
-            switch (value){
-                case 1: return Hazard.None;
-                case 2: return Hazard.Cliff;
-                case 3: return Hazard.Lava;
-                case 4: return Hazard.Water;
-                case 5: return Hazard.UnknownFluid;
-                case 6: return Hazard.MissingFuel;
+        public static Hazard Find(int value) {
+            switch (value) {
+                case 1:
+                    return Hazard.None;
+                case 2:
+                    return Hazard.Cliff;
+                case 3:
+                    return Hazard.Lava;
+                case 4:
+                    return Hazard.Water;
+                case 5:
+                    return Hazard.UnknownFluid;
+                case 6:
+                    return Hazard.MissingFuel;
                 default:
                     return Hazard.Unknown;
             }
@@ -168,7 +174,7 @@ public class ExcavatorMinecartLogic {
             } else {
                 PathHazard = getFrontHazard(frontPos);
 
-                if(PathHazard == Hazard.None) {
+                if (PathHazard == Hazard.None) {
                     if (miningPos == null) {
                         beginMining(frontPos);
                         miningCountTick = 0;
@@ -281,67 +287,67 @@ public class ExcavatorMinecartLogic {
         return blockState.getCollisionShape(world, blockPos).isEmpty() || blockState.isIn(BlockTags.RAILS);
     }
 
-    private Hazard getFrontHazard(BlockPos pos){
+    private Hazard getFrontHazard(BlockPos pos) {
         BlockPos frontDown = pos.down();
         BlockPos behindFrontDown = pos.down().offset(miningDir);
 
         Hazard hazard;
 
         //front bottom
-        if(isAir(frontDown)) return Hazard.Cliff;
-        if(isAir(behindFrontDown)) return Hazard.Cliff;
+        if (isAir(frontDown)) return Hazard.Cliff;
+        if (isAir(behindFrontDown)) return Hazard.Cliff;
 
-        if((hazard = getHazard(frontDown)) != Hazard.None) return hazard;
-        if((hazard = getHazard(behindFrontDown)) != Hazard.None) return hazard;
+        if ((hazard = getHazard(frontDown)) != Hazard.None) return hazard;
+        if ((hazard = getHazard(behindFrontDown)) != Hazard.None) return hazard;
 
         //behind front bottom
-        if((hazard = getHazard(pos.offset(miningDir).down())) != Hazard.None) return hazard;
+        if ((hazard = getHazard(pos.offset(miningDir).down())) != Hazard.None) return hazard;
 
         //front top
-        if((hazard = getHazard(pos.up(MiningCountZ))) != Hazard.None) return hazard;
+        if ((hazard = getHazard(pos.up(MiningCountZ))) != Hazard.None) return hazard;
 
         //behind the Front
-        if((hazard = getStackHazardous(pos.offset(miningDir))) != Hazard.None)  return hazard;
+        if ((hazard = getStackHazardous(pos.offset(miningDir))) != Hazard.None) return hazard;
 
         //front sides
-        if((hazard = getStackHazardous(pos.offset(miningDir.rotateY()))) != Hazard.None)  return hazard;
-        if((hazard = getStackHazardous(pos.offset(miningDir.rotateYCCW()))) != Hazard.None)  return hazard;
+        if ((hazard = getStackHazardous(pos.offset(miningDir.rotateY()))) != Hazard.None) return hazard;
+        if ((hazard = getStackHazardous(pos.offset(miningDir.rotateYCCW()))) != Hazard.None) return hazard;
 
         return Hazard.None;
     }
 
-    private Hazard getStackHazardous(BlockPos pos){
+    private Hazard getStackHazardous(BlockPos pos) {
         for (int i = 0; i < MiningCountZ; i++) {
             Hazard hazard = getHazard(pos);
-            if(hazard != Hazard.None) return hazard;
+            if (hazard != Hazard.None) return hazard;
             pos = pos.up();
         }
 
         return Hazard.None;
     }
 
-    private boolean isAir(BlockPos pos){
+    private boolean isAir(BlockPos pos) {
         return world.getBlockState(pos).isAir();
     }
 
-    private Hazard getHazard(BlockPos pos){
+    private Hazard getHazard(BlockPos pos) {
         FluidState fLuidState = world.getBlockState(pos).getFluidState();
 
-        if(!fLuidState.isEmpty()){
-            if(fLuidState.isTagged(FluidTags.LAVA)) {
+        if (!fLuidState.isEmpty()) {
+            if (fLuidState.isTagged(FluidTags.LAVA)) {
                 return Hazard.Lava;
-            }else if(fLuidState.isTagged(FluidTags.WATER)) {
+            } else if (fLuidState.isTagged(FluidTags.WATER)) {
                 return Hazard.Water;
-            }else{
+            } else {
                 return Hazard.UnknownFluid;
             }
-        }else{
+        } else {
             return Hazard.None;
         }
     }
 
     private void beginMining(BlockPos blockPos) {
-        if(blockPos != null) {
+        if (blockPos != null) {
             world.sendBlockBreakProgress(0, blockPos, -1);
         }
         PathHazard = Hazard.Unknown;
@@ -350,7 +356,7 @@ public class ExcavatorMinecartLogic {
     }
 
     private void resetMining() {
-        if(miningPos != null) {
+        if (miningPos != null) {
             world.sendBlockBreakProgress(0, miningPos, -1);
         }
         PathHazard = Hazard.Unknown;
@@ -364,7 +370,7 @@ public class ExcavatorMinecartLogic {
 
         BlockState blockState = world.getBlockState(miningPos);
 
-        LOGGER.debug("tickMining on "+blockState.getBlock().getRegistryName()+" at "+miningPos+", getRequiresTool: "+blockState.getRequiresTool()+" ,getHarvestTool: "+(blockState.getHarvestTool() != null ? blockState.getHarvestTool().getName() : "nothing")+ ", getBlockHardness: "+blockState.getBlockHardness(world, miningPos));
+        LOGGER.debug("tickMining on " + blockState.getBlock().getRegistryName() + " at " + miningPos + ", getRequiresTool: " + blockState.getRequiresTool() + " ,getHarvestTool: " + (blockState.getHarvestTool() != null ? blockState.getHarvestTool().getName() : "nothing") + ", getBlockHardness: " + blockState.getBlockHardness(world, miningPos));
 
         boolean isPickAxe = (blockState.getHarvestTool() == ToolType.PICKAXE && blockState.getBlockHardness(world, miningPos) <= 10f) || blockState.getBlock() == Blocks.NETHER_QUARTZ_ORE;
         boolean isShovel = blockState.getHarvestTool() == ToolType.SHOVEL && blockState.getBlockHardness(world, miningPos) <= 10f;

@@ -19,8 +19,7 @@ public class ExcavatorMod {
     public static EntityType<ExcavatorMinecartEntity> EXCAVATOR_ENTITY;
     public static ContainerType<ExcavatorContainer> EXCAVATOR_CONTAINER;
 
-    public ExcavatorMod()
-    {
+    public ExcavatorMod() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ExcavatorMod::setupClient);
     }
 
@@ -40,6 +39,7 @@ public class ExcavatorMod {
             EXCAVATOR_CONTAINER.setRegistryName("excavator");
             event.getRegistry().register(EXCAVATOR_CONTAINER);
         }
+
         @SubscribeEvent
         public static void onBlocksRegistry(final RegistryEvent.Register<Item> event) {
         }

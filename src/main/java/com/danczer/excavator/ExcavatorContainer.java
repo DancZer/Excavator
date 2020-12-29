@@ -5,7 +5,6 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
-import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 
@@ -25,17 +24,17 @@ public class ExcavatorContainer extends Container {
         assertInventorySize(inventory, InventorySize);
         inventory.openInventory(playerInventory.player);
 
-        for(int j = 0; j < InventorySize; ++j) {
+        for (int j = 0; j < InventorySize; ++j) {
             this.addSlot(new Slot(inventory, j, 8 + j * 18, 20));
         }
 
-        for(int l = 0; l < 3; ++l) {
-            for(int k = 0; k < 9; ++k) {
+        for (int l = 0; l < 3; ++l) {
+            for (int k = 0; k < 9; ++k) {
                 this.addSlot(new Slot(playerInventory, k + l * 9 + 9, 8 + k * 18, l * 18 + 51));
             }
         }
 
-        for(int i1 = 0; i1 < 9; ++i1) {
+        for (int i1 = 0; i1 < 9; ++i1) {
             this.addSlot(new Slot(playerInventory, i1, 8 + i1 * 18, 109));
         }
 
