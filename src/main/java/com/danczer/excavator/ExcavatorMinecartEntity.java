@@ -45,7 +45,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final double PushForce = 0.1;
+    private static final double PushForce = 0.2;
 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
 
@@ -151,6 +151,10 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
+            if(itemStack.getItem() == logic.railType.asItem()) continue;
+            if(itemStack.getItem() == logic.torchType.asItem()) continue;
+            if(itemStack.getItem() == Items.REDSTONE) continue;
+
             if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
 
@@ -183,7 +187,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     private boolean isCreativeMode()
     {
-        return world.getServer() != null && world.getServer().getGameType() != GameType.CREATIVE;
+        return world.getServer() != null && world.getServer().getGameType() == GameType.CREATIVE;
     }
 
     private void excavatorTick() {
