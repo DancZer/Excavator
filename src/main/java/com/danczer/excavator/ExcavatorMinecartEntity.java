@@ -49,6 +49,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
 
     private final static Item FuelType = Items.COAL;
+    private static final int FuelConsumptionRate = 3; //bigger is slower
 
     private int prevPushMinedBlockCount;
     private int prevMinedBlockCount;
@@ -244,7 +245,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                 if (prevMinedBlockCount != logic.getMinedBlockCount()) {
                     prevMinedBlockCount = logic.getMinedBlockCount();
 
-                    if (prevMinedBlockCount % ExcavatorMinecartLogic.MiningCountZ == 0) {
+                    if (prevMinedBlockCount % (ExcavatorMinecartLogic.MiningCountZ*FuelConsumptionRate) == 0) {
                         reduceInventoryItem(FuelType);
                     }
                 }
