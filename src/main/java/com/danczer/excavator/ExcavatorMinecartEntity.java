@@ -48,6 +48,8 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
 
+    private final static Item FuelType = Items.COAL;
+
     private int prevPushMinedBlockCount;
     private int prevMinedBlockCount;
     private int prevPlacedTrackCount;
@@ -144,7 +146,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
             if (itemStack.getItem() == logic.railType.asItem()) continue;
             if (itemStack.getItem() == logic.torchType.asItem()) continue;
-            if (itemStack.getItem() == Items.REDSTONE) continue;
+            if (itemStack.getItem() == FuelType) continue;
 
             if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
@@ -186,20 +188,20 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
             boolean hasRails = true;
             boolean hasTorch = true;
-            boolean hasRedStoneDust = true;
+            boolean hasFuel = true;
 
             if (!isCreativeMode()) {
                 hasRails = hasInventoryItem(logic.railType.asItem());
                 hasTorch = hasInventoryItem(logic.torchType.asItem());
-                hasRedStoneDust = hasInventoryItem(Items.REDSTONE);
+                hasFuel = hasInventoryItem(FuelType);
             }
 
             LOGGER.debug("isFull: " + isFull);
             LOGGER.debug("hasRails: " + hasRails);
             LOGGER.debug("hasTorch: " + hasTorch);
-            LOGGER.debug("hasRedStoneDust: " + hasRedStoneDust);
+            LOGGER.debug("hasFuel: " + hasFuel);
 
-            if (!isFull && hasRails && hasTorch && hasRedStoneDust) {
+            if (!isFull && hasRails && hasTorch && hasFuel) {
                 boolean ok = logic.tick();
 
                 LOGGER.debug("Logic Is Ok: " + ok);
@@ -230,7 +232,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                 }
             } else {
                 setMiningInProgress(false);
-                if (!hasRails || !hasTorch || !hasRedStoneDust) {
+                if (!hasRails || !hasTorch || !hasFuel) {
                     setMiningHazard(ExcavatorMinecartLogic.Hazard.MissingFuel);
                 } else {
                     setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
@@ -243,7 +245,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                     prevMinedBlockCount = logic.getMinedBlockCount();
 
                     if (prevMinedBlockCount % ExcavatorMinecartLogic.MiningCountZ == 0) {
-                        reduceInventoryItem(Items.REDSTONE);
+                        reduceInventoryItem(FuelType);
                     }
                 }
 
