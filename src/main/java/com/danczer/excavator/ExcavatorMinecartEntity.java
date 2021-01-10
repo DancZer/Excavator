@@ -12,7 +12,6 @@ import net.minecraft.inventory.container.Container;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.IPacket;
 import net.minecraft.network.datasync.DataParameter;
@@ -38,21 +37,16 @@ import java.util.List;
 
 public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements IHopper {
 
-    private static final DataParameter<Boolean> MINING = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.BOOLEAN);
-    private static final DataParameter<Integer> HAZARD = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.VARINT);
+    private static final DataParameter<Integer> MINING_STATUS = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.VARINT);
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final double PushForce = 0.2;
+    private static final double PushForce = 0.02;
     private static final double CollectBlockWithHardness = 3f;
 
-    private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this, Blocks.RAIL, Blocks.WALL_TORCH);
-
-    private final static Item FuelType = Items.COAL;
-    private static final int FuelConsumptionRate = 3; //bigger is slower
+    private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this);
 
     private int prevPushMinedBlockCount;
-    private int prevMinedBlockCount;
     private int prevPlacedTrackCount;
     private int prevPlacedTorchCount;
 
@@ -74,8 +68,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     protected void registerData() {
         super.registerData();
-        this.dataManager.register(MINING, false);
-        this.dataManager.register(HAZARD, ExcavatorMinecartLogic.Hazard.Unknown.ordinal());
+        this.dataManager.register(MINING_STATUS, ExcavatorMinecartLogic.MiningStatus.Rolling.ordinal());
     }
 
     public AbstractMinecartEntity.Type getMinecartType() {
@@ -83,7 +76,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     }
 
     public BlockState getDefaultDisplayTile() {
-        return Blocks.HOPPER.getDefaultState();
+        return Blocks.OBSERVER.getDefaultState();
     }
 
     public int getDefaultDisplayTileOffset() {
@@ -145,9 +138,8 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if (itemStack.getItem() == logic.railType.asItem()) continue;
-            if (itemStack.getItem() == logic.torchType.asItem()) continue;
-            if (itemStack.getItem() == FuelType) continue;
+            if (itemStack.getItem() == logic.getRailTypeItem()) continue;
+            if (itemStack.getItem() == logic.getTorchTypeItem()) continue;
 
             if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
@@ -172,6 +164,9 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     }
 
     public void tick() {
+        logic.setRailTypeItem((BlockItem)Blocks.RAIL.asItem());
+        logic.setTorchTypeItem((BlockItem)Blocks.WALL_TORCH.asItem());
+
         excavatorTick();
 
         super.tick();
@@ -189,87 +184,61 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
             boolean hasRails = true;
             boolean hasTorch = true;
-            boolean hasFuel = true;
 
             if (!isCreativeMode()) {
-                hasRails = hasInventoryItem(logic.railType.asItem());
-                hasTorch = hasInventoryItem(logic.torchType.asItem());
-                hasFuel = hasInventoryItem(FuelType);
+                hasRails = hasInventoryItem(logic.getRailTypeItem());
+                hasTorch = hasInventoryItem(logic.getTorchTypeItem());
             }
 
             LOGGER.debug("isFull: " + isFull);
             LOGGER.debug("hasRails: " + hasRails);
             LOGGER.debug("hasTorch: " + hasTorch);
-            LOGGER.debug("hasFuel: " + hasFuel);
 
-            if (!isFull && hasRails && hasTorch && hasFuel) {
-                boolean ok = logic.tick();
+            if (!isFull && hasRails && hasTorch) {
+                logic.tick();
 
-                LOGGER.debug("Logic Is Ok: " + ok);
-                LOGGER.debug("Logic IsPathClear: " + logic.IsPathClear);
-                LOGGER.debug("Logic Hazard: " + logic.PathHazard);
+                setMiningStatus(logic.pathMiningStatus);
 
-                if (ok) {
-                    setMiningHazard(logic.PathHazard);
-                    setMiningInProgress(prevMinedBlockCount != logic.getMinedBlockCount());
+                LOGGER.debug("Logic Hazard: " + logic.pathMiningStatus);
 
-                    if (logic.IsPathClear) {
-                        if (prevPushMinedBlockCount != logic.getMinedBlockCount()) {
-                            prevPushMinedBlockCount = logic.getMinedBlockCount();
-                            //push it a bit to the direction
-                            setMotion(logic.getDirectoryVector().scale(PushForce));
-                            LOGGER.debug("Logic setMotion: Push");
-                        } else {
-                            LOGGER.debug("Logic setMotion: leave");
-                        }
+                if (logic.pathMiningStatus == ExcavatorMinecartLogic.MiningStatus.MiningInProgress) {
+                    if (prevPushMinedBlockCount != logic.getMinedBlockCount()) {
+                        prevPushMinedBlockCount = logic.getMinedBlockCount();
+                        //push it a bit to the direction
+                        setMotion(logic.getDirectoryVector().scale(PushForce));
+                        LOGGER.debug("Logic setMotion: Push");
                     } else {
-                        LOGGER.debug("Logic setMotion: ZERO");
-                        setMotion(Vector3d.ZERO);
+                        LOGGER.debug("Logic setMotion: leave");
                     }
-                } else {
-                    LOGGER.debug("Logic setMotion: leave");
-                    setMiningInProgress(false);
-                    setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
+                } else if (logic.pathMiningStatus != ExcavatorMinecartLogic.MiningStatus.Rolling){
+                    LOGGER.debug("Logic setMotion: ZERO");
+                    setMotion(Vector3d.ZERO);
                 }
             } else {
-                setMiningInProgress(false);
-                if (!hasRails || !hasTorch || !hasFuel) {
-                    setMiningHazard(ExcavatorMinecartLogic.Hazard.MissingFuel);
+                if (!hasRails || !hasTorch) {
+                    setMiningStatus(ExcavatorMinecartLogic.MiningStatus.DepletedConsumable);
                 } else {
-                    setMiningHazard(ExcavatorMinecartLogic.Hazard.Unknown);
+                    setMiningStatus(ExcavatorMinecartLogic.MiningStatus.Rolling);
                 }
-
             }
 
             if (!isCreativeMode()) {
-                if (prevMinedBlockCount != logic.getMinedBlockCount()) {
-                    prevMinedBlockCount = logic.getMinedBlockCount();
-
-                    if (prevMinedBlockCount % (ExcavatorMinecartLogic.MiningCountZ*FuelConsumptionRate) == 0) {
-                        reduceInventoryItem(FuelType);
-                    }
-                }
-
                 if (prevPlacedTorchCount != logic.getPlacedTorchCount()) {
                     prevPlacedTorchCount = logic.getPlacedTorchCount();
 
-                    reduceInventoryItem(logic.torchType.asItem());
+                    reduceInventoryItem(logic.getTorchTypeItem());
                 }
 
                 if (prevPlacedTrackCount != logic.getPlacedTrackCount()) {
                     prevPlacedTrackCount = logic.getPlacedTrackCount();
 
-                    reduceInventoryItem(logic.railType.asItem());
+                    reduceInventoryItem(logic.getRailTypeItem());
                 }
             }
         }
 
         if (rand.nextInt(4) == 0) {
-            if (isMiningInProgress()) {
-                this.world.addParticle(ParticleTypes.LARGE_SMOKE, this.getPosX(), this.getPosY() + 0.8D, this.getPosZ(), 0.0D, 0.0D, 0.0D);
-            } else {
-                ShowHazard();
-            }
+            ShowMiningStatus();
         }
     }
 
@@ -297,30 +266,32 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         return found;
     }
 
-    private void ShowHazard() {
-        ExcavatorMinecartLogic.Hazard hazard = getMiningHazard();
-        LOGGER.debug("Hazard: " + hazard);
+    private void ShowMiningStatus() {
+        ExcavatorMinecartLogic.MiningStatus miningStatus = getMiningStatus();
+        LOGGER.debug("Hazard: " + miningStatus);
 
         IParticleData particleType = null;
 
-        switch (hazard) {
-            case Cliff:
+        switch (miningStatus) {
+            case MiningInProgress:
+                particleType = ParticleTypes.LARGE_SMOKE;
+                break;
+            case HazardCliff:
                 particleType = ParticleTypes.ENTITY_EFFECT;
                 break;
-            case Lava:
+            case HazardLava:
                 particleType = ParticleTypes.FALLING_LAVA;
                 break;
-            case Water:
+            case HazardWater:
                 particleType = ParticleTypes.FALLING_WATER;
                 break;
-            case UnknownFluid:
+            case HazardUnknownFluid:
                 particleType = ParticleTypes.BUBBLE;
                 break;
-            case MissingFuel:
+            case DepletedConsumable:
                 particleType = ParticleTypes.WITCH;
                 break;
-            case Unknown:
-            case None:
+            case Rolling:
             default:
                 break;
         }
@@ -330,22 +301,13 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         }
     }
 
-    private boolean isMiningInProgress() {
-        return this.dataManager.get(MINING);
+    private ExcavatorMinecartLogic.MiningStatus getMiningStatus() {
+        return ExcavatorMinecartLogic.MiningStatus.Find(this.dataManager.get(MINING_STATUS));
     }
 
-    private void setMiningInProgress(boolean powered) {
-        this.dataManager.set(MINING, powered);
+    private void setMiningStatus(ExcavatorMinecartLogic.MiningStatus miningStatus) {
+        this.dataManager.set(MINING_STATUS, miningStatus.Value);
     }
-
-    private ExcavatorMinecartLogic.Hazard getMiningHazard() {
-        return ExcavatorMinecartLogic.Hazard.Find(this.dataManager.get(HAZARD));
-    }
-
-    private void setMiningHazard(ExcavatorMinecartLogic.Hazard hazard) {
-        this.dataManager.set(HAZARD, hazard.Value);
-    }
-
 
     private void hopperTick() {
         if (!this.world.isRemote && this.isAlive() && this.getBlocked()) {

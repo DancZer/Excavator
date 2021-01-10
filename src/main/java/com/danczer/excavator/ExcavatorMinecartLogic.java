@@ -6,6 +6,8 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
 import net.minecraft.fluid.FluidState;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.state.properties.RailShape;
 import net.minecraft.tags.BlockTags;
@@ -23,31 +25,31 @@ import org.apache.logging.log4j.Logger;
 
 public class ExcavatorMinecartLogic {
 
-    public enum Hazard {
-        Unknown(0), None(1), Cliff(2), Lava(3), Water(4), UnknownFluid(5), MissingFuel(6);
+    public enum MiningStatus {
+        Rolling(0), MiningInProgress(1), HazardCliff(2), HazardLava(3), HazardWater(4), HazardUnknownFluid(5), DepletedConsumable(6);
 
         public final int Value;
 
-        Hazard(int value) {
+        MiningStatus(int value) {
             Value = value;
         }
 
-        public static Hazard Find(int value) {
+        public static MiningStatus Find(int value) {
             switch (value) {
                 case 1:
-                    return Hazard.None;
+                    return MiningStatus.MiningInProgress;
                 case 2:
-                    return Hazard.Cliff;
+                    return MiningStatus.HazardCliff;
                 case 3:
-                    return Hazard.Lava;
+                    return MiningStatus.HazardLava;
                 case 4:
-                    return Hazard.Water;
+                    return MiningStatus.HazardWater;
                 case 5:
-                    return Hazard.UnknownFluid;
+                    return MiningStatus.HazardUnknownFluid;
                 case 6:
-                    return Hazard.MissingFuel;
+                    return MiningStatus.DepletedConsumable;
                 default:
-                    return Hazard.Unknown;
+                    return MiningStatus.Rolling;
             }
         }
     }
@@ -61,8 +63,12 @@ public class ExcavatorMinecartLogic {
 
     private final World world;
     private final AbstractMinecartEntity minecartEntity;
-    public final Block railType;
-    public final Block torchType;
+
+    private BlockItem railTypeItem;
+    private BlockItem torchTypeItem;
+
+    private Block railTypeBlock;
+    private Block torchTypeBlock;
 
     private BlockPos lastTorchPos;
     private BlockPos miningPos;
@@ -77,15 +83,48 @@ public class ExcavatorMinecartLogic {
     private int placedTorchCount = 0;
     private boolean isMinecartTurning;
 
-    public boolean IsPathClear;
-    public Hazard PathHazard = Hazard.Unknown;
+    public MiningStatus pathMiningStatus = MiningStatus.Rolling;
 
-    public ExcavatorMinecartLogic(AbstractMinecartEntity minecartEntity, Block railType, Block torchType) {
+    public ExcavatorMinecartLogic(AbstractMinecartEntity minecartEntity) {
         this.minecartEntity = minecartEntity;
         this.world = minecartEntity.world;
-        this.railType = railType;
-        this.torchType = torchType;
     }
+
+    public void setRailTypeItem(BlockItem item)
+    {
+        railTypeItem = item;
+        if(item != null){
+            railTypeBlock = item.getBlock();
+        }else{
+            railTypeBlock = null;
+        }
+
+        LOGGER.debug("railTypeItem: " + railTypeItem);
+        LOGGER.debug("railTypeBlock: " + railTypeBlock);
+
+    }
+
+    public Item getRailTypeItem(){
+        return railTypeItem;
+    }
+
+    public void setTorchTypeItem(BlockItem item)
+    {
+        torchTypeItem = item;
+        if(item != null){
+            torchTypeBlock = item.getBlock();
+        }else{
+            torchTypeBlock = null;
+        }
+
+        LOGGER.debug("railTypeItem: " + torchTypeItem);
+        LOGGER.debug("railTypeBlock: " + torchTypeBlock);
+    }
+
+    public Item getTorchTypeItem(){
+        return torchTypeItem;
+    }
+
 
     public int getMinedBlockCount() {
         return minedBlockCount;
@@ -155,7 +194,12 @@ public class ExcavatorMinecartLogic {
         }
     }
 
-    public boolean tick() {
+    public void tick() {
+        if(railTypeBlock == null || torchTypeBlock == null){
+            resetMining();
+            return;
+        }
+
         BlockPos frontPos = getMiningPlace();
 
         LOGGER.debug("FrontPos: " + frontPos);
@@ -163,18 +207,17 @@ public class ExcavatorMinecartLogic {
         //stopped
         if (frontPos == null) {
             resetMining();
-            return false;
         } else {
-            IsPathClear = isFrontHarvested(frontPos);
+            boolean isPathClear = isFrontHarvested(frontPos);
 
-            LOGGER.debug("IsPathClear: " + IsPathClear);
+            LOGGER.debug("IsPathClear: " + isPathClear);
             //nothing to do
-            if (IsPathClear) {
+            if (isPathClear) {
                 resetMining();
             } else {
-                PathHazard = getFrontHazard(frontPos);
+                pathMiningStatus = getFrontHazard(frontPos);
 
-                if (PathHazard == Hazard.None) {
+                if (pathMiningStatus == MiningStatus.MiningInProgress) {
                     if (miningPos == null) {
                         beginMining(frontPos);
                         miningCountTick = 0;
@@ -199,8 +242,6 @@ public class ExcavatorMinecartLogic {
                     }
                 }
             }
-
-            return true;
         }
     }
 
@@ -287,62 +328,62 @@ public class ExcavatorMinecartLogic {
         return blockState.getCollisionShape(world, blockPos).isEmpty() || blockState.isIn(BlockTags.RAILS);
     }
 
-    private Hazard getFrontHazard(BlockPos pos) {
+    private MiningStatus getFrontHazard(BlockPos pos) {
         BlockPos frontDown = pos.down();
         BlockPos behindFrontDown = pos.down().offset(miningDir);
 
-        Hazard hazard;
+        MiningStatus miningStatus;
 
         //front bottom
-        if (isAir(frontDown)) return Hazard.Cliff;
-        if (isAir(behindFrontDown)) return Hazard.Cliff;
+        if (isAir(frontDown)) return MiningStatus.HazardCliff;
+        if (isAir(behindFrontDown)) return MiningStatus.HazardCliff;
 
-        if ((hazard = getHazard(frontDown)) != Hazard.None) return hazard;
-        if ((hazard = getHazard(behindFrontDown)) != Hazard.None) return hazard;
+        if ((miningStatus = getHazard(frontDown)) != MiningStatus.MiningInProgress) return miningStatus;
+        if ((miningStatus = getHazard(behindFrontDown)) != MiningStatus.MiningInProgress) return miningStatus;
 
         //behind front bottom
-        if ((hazard = getHazard(pos.offset(miningDir).down())) != Hazard.None) return hazard;
+        if ((miningStatus = getHazard(pos.offset(miningDir).down())) != MiningStatus.MiningInProgress) return miningStatus;
 
         //front top
-        if ((hazard = getHazard(pos.up(MiningCountZ))) != Hazard.None) return hazard;
+        if ((miningStatus = getHazard(pos.up(MiningCountZ))) != MiningStatus.MiningInProgress) return miningStatus;
 
         //behind the Front
-        if ((hazard = getStackHazardous(pos.offset(miningDir))) != Hazard.None) return hazard;
+        if ((miningStatus = getStackHazardous(pos.offset(miningDir))) != MiningStatus.MiningInProgress) return miningStatus;
 
         //front sides
-        if ((hazard = getStackHazardous(pos.offset(miningDir.rotateY()))) != Hazard.None) return hazard;
-        if ((hazard = getStackHazardous(pos.offset(miningDir.rotateYCCW()))) != Hazard.None) return hazard;
+        if ((miningStatus = getStackHazardous(pos.offset(miningDir.rotateY()))) != MiningStatus.MiningInProgress) return miningStatus;
+        if ((miningStatus = getStackHazardous(pos.offset(miningDir.rotateYCCW()))) != MiningStatus.MiningInProgress) return miningStatus;
 
-        return Hazard.None;
+        return MiningStatus.MiningInProgress;
     }
 
-    private Hazard getStackHazardous(BlockPos pos) {
+    private MiningStatus getStackHazardous(BlockPos pos) {
         for (int i = 0; i < MiningCountZ; i++) {
-            Hazard hazard = getHazard(pos);
-            if (hazard != Hazard.None) return hazard;
+            MiningStatus miningStatus = getHazard(pos);
+            if (miningStatus != MiningStatus.MiningInProgress) return miningStatus;
             pos = pos.up();
         }
 
-        return Hazard.None;
+        return MiningStatus.MiningInProgress;
     }
 
     private boolean isAir(BlockPos pos) {
         return world.getBlockState(pos).isAir();
     }
 
-    private Hazard getHazard(BlockPos pos) {
+    private MiningStatus getHazard(BlockPos pos) {
         FluidState fLuidState = world.getBlockState(pos).getFluidState();
 
         if (!fLuidState.isEmpty()) {
             if (fLuidState.isTagged(FluidTags.LAVA)) {
-                return Hazard.Lava;
+                return MiningStatus.HazardLava;
             } else if (fLuidState.isTagged(FluidTags.WATER)) {
-                return Hazard.Water;
+                return MiningStatus.HazardWater;
             } else {
-                return Hazard.UnknownFluid;
+                return MiningStatus.HazardUnknownFluid;
             }
         } else {
-            return Hazard.None;
+            return MiningStatus.MiningInProgress;
         }
     }
 
@@ -350,7 +391,7 @@ public class ExcavatorMinecartLogic {
         if (blockPos != null) {
             world.sendBlockBreakProgress(0, blockPos, -1);
         }
-        PathHazard = Hazard.Unknown;
+        pathMiningStatus = MiningStatus.Rolling;
         miningPos = blockPos;
         miningTimerTick = 0;
     }
@@ -359,7 +400,7 @@ public class ExcavatorMinecartLogic {
         if (miningPos != null) {
             world.sendBlockBreakProgress(0, miningPos, -1);
         }
-        PathHazard = Hazard.Unknown;
+        pathMiningStatus = MiningStatus.Rolling;
         miningPos = null;
         miningTimerTick = 0;
         miningCountTick = 0;
@@ -412,7 +453,7 @@ public class ExcavatorMinecartLogic {
 
         LOGGER.debug("createRail");
 
-        world.setBlockState(miningPos, railType.getDefaultState().rotate(world, miningPos, getRailRotation()));
+        world.setBlockState(miningPos, railTypeBlock.getDefaultState().rotate(world, miningPos, getRailRotation()));
         placedTrackCount++;
     }
 
@@ -428,7 +469,7 @@ public class ExcavatorMinecartLogic {
 
         LOGGER.debug("createTorch");
 
-        world.setBlockState(miningPos, torchType.getDefaultState().rotate(world, miningPos, getTorchRotation()));
+        world.setBlockState(miningPos, torchTypeBlock.getDefaultState().rotate(world, miningPos, getTorchRotation()));
         placedTorchCount++;
 
         lastTorchPos = miningPos;
