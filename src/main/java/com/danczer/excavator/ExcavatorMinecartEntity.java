@@ -12,6 +12,7 @@ import net.minecraft.inventory.container.Container;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.IPacket;
 import net.minecraft.network.datasync.DataParameter;
@@ -31,6 +32,7 @@ import net.minecraftforge.fml.network.NetworkHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements IHopper {
@@ -43,6 +45,8 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this);
 
+    private final List<Item> Rails = new ArrayList<>();
+    private final List<Item> Torches = new ArrayList<>();
 
     private boolean isBlocked = true;
     private int transferTicker = -1;
@@ -50,14 +54,28 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     public ExcavatorMinecartEntity(FMLPlayMessages.SpawnEntity packet, World worldIn) {
         super(ExcavatorMod.EXCAVATOR_ENTITY, worldIn);
+        Init();
     }
 
     public ExcavatorMinecartEntity(EntityType<? extends ExcavatorMinecartEntity> type, World worldIn) {
         super(type, worldIn);
+        Init();
     }
 
     public ExcavatorMinecartEntity(World worldIn, double x, double y, double z) {
         super(ExcavatorMod.EXCAVATOR_ENTITY, x, y, z, worldIn);
+        Init();
+    }
+
+    private void Init(){
+        Torches.clear();
+        Torches.add(Items.TORCH);
+        Torches.add(Items.REDSTONE_TORCH);
+        Torches.add(Items.SOUL_TORCH);
+
+        Rails.clear();
+        Rails.add(Items.RAIL);
+        Rails.add(Items.POWERED_RAIL);
     }
 
     protected void registerData() {
@@ -196,12 +214,25 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     public BlockItem findRailTypeItem()
     {
-        return (BlockItem) Blocks.RAIL.asItem();
+        return findInventoryItem(Rails);
     }
 
     public BlockItem findTorchTypeItem()
     {
-        return (BlockItem) Blocks.WALL_TORCH.asItem();
+        return findInventoryItem(Torches);
+    }
+
+    public BlockItem findInventoryItem(List<Item> items) {
+        for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
+            ItemStack itemStack = getStackInSlot(i);
+
+            Item item = itemStack.getItem();
+            if (!itemStack.isEmpty() && items.contains(item) && item instanceof BlockItem) {
+                return (BlockItem) item;
+            }
+        }
+
+        return null;
     }
 
     public boolean reduceInventoryItem(Item item) {
@@ -215,19 +246,6 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         }
 
         return false;
-    }
-
-    public boolean hasInventoryItem(Item item) {
-        boolean found = false;
-        for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
-            ItemStack itemStack = getStackInSlot(i);
-
-            if (!itemStack.isEmpty() && itemStack.getItem() == item && !found) {
-                found = true;
-            }
-        }
-
-        return found;
     }
 
     private void showMiningStatus() {

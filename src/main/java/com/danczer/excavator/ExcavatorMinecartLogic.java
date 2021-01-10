@@ -79,7 +79,7 @@ public class ExcavatorMinecartLogic {
         this.world = minecartEntity.world;
     }
 
-    private boolean isCreativeMode() {
+    private boolean isServerCreativeMode() {
         return world.getServer() != null && world.getServer().getGameType() == GameType.CREATIVE;
     }
 
@@ -138,8 +138,7 @@ public class ExcavatorMinecartLogic {
     }
 
     public void tick() {
-        if(railTypeItem == null || torchTypeItem == null)
-        {
+        if (railTypeItem == null || torchTypeItem == null) {
             resetMining();
             miningStatus = MiningStatus.DepletedConsumable;
             return;
@@ -165,7 +164,7 @@ public class ExcavatorMinecartLogic {
 
                 if (miningStatus == MiningStatus.MiningInProgress) {
                     if (miningPos == null) {
-                        beginMining(frontPos.offset(Direction.UP, MiningCountZ));
+                        beginMining(frontPos.offset(Direction.UP, MiningCountZ-1));
                         miningStackTick = 0;
 
                         LOGGER.debug("beginMining");
@@ -180,7 +179,7 @@ public class ExcavatorMinecartLogic {
                             } else { //mining of the stack is done
                                 beginMining(miningPos.down());
                             }
-                        }else{
+                        } else {
                             minecartEntity.setMotion(Vector3d.ZERO);
                         }
                     }
@@ -247,9 +246,9 @@ public class ExcavatorMinecartLogic {
 
         boolean isMinecartAscending =
                 railShape == RailShape.ASCENDING_EAST && dir == Direction.EAST ||
-                railShape == RailShape.ASCENDING_WEST && dir == Direction.WEST  ||
-                railShape == RailShape.ASCENDING_NORTH && dir == Direction.NORTH ||
-                railShape == RailShape.ASCENDING_SOUTH && dir == Direction.SOUTH ;
+                        railShape == RailShape.ASCENDING_WEST && dir == Direction.WEST ||
+                        railShape == RailShape.ASCENDING_NORTH && dir == Direction.NORTH ||
+                        railShape == RailShape.ASCENDING_SOUTH && dir == Direction.SOUTH;
 
         LOGGER.debug("minecartEntity isMinecartTurning: " + isMinecartTurning);
         LOGGER.debug("minecartEntity adjusted dir: " + dir);
@@ -258,15 +257,17 @@ public class ExcavatorMinecartLogic {
 
         BlockPos resultPos = pos.offset(dir);
 
-        if(isMinecartAscending){
+        if (isMinecartAscending) {
             return resultPos.up();
-        }else{
+        } else {
             return resultPos;
         }
     }
 
     private boolean isRailTrack(BlockPos targetPos) {
-        return world.getBlockState(targetPos).isIn(BlockTags.RAILS);
+        BlockState blockState = world.getBlockState(targetPos);
+
+        return blockState.isIn(BlockTags.RAILS);
     }
 
     private boolean isFrontHarvested(BlockPos pos) {
@@ -358,9 +359,9 @@ public class ExcavatorMinecartLogic {
         minecartEntity.setMotion(Vector3d.ZERO);
     }
 
-    private void miningDone(BlockPos frontPos, boolean push){
+    private void miningDone(BlockPos frontPos, boolean push) {
         createRailAndTorch(frontPos);
-        if(push) {
+        if (push) {
             LOGGER.debug("Minecart Pushed");
             minecartEntity.setMotion(getDirectoryVector().scale(MinecartPushForce));
         }
@@ -419,20 +420,26 @@ public class ExcavatorMinecartLogic {
     }
 
     private void createRailAndTorch(BlockPos frontPos) {
-        createRail(frontPos.offset(Direction.UP, 0));
-        createTorch(frontPos.offset(Direction.UP, 2));
+        boolean railCreated = createRail(frontPos.offset(Direction.UP, 0));
+
+        //Do not create torch if rolling on existing rails
+        if(railCreated) {
+            createTorch(frontPos.offset(Direction.UP, 2));
+        }
     }
 
-    private void createRail(BlockPos blockPos) {
-        if (isRailTrack(blockPos) || isRailTrack(blockPos.offset(Direction.DOWN, 1))) return;
-
-        LOGGER.debug("createRail");
+    private boolean createRail(BlockPos blockPos) {
+        if (isRailTrack(blockPos) || isRailTrack(blockPos.offset(Direction.DOWN, 1))) return false;
 
         if (railTypeItem != null) {
-            if (isCreativeMode() || minecartEntity.reduceInventoryItem(railTypeItem)) {
+            if (isServerCreativeMode() || minecartEntity.reduceInventoryItem(railTypeItem)) {
                 world.setBlockState(blockPos, railTypeItem.getBlock().getDefaultState().rotate(world, blockPos, getRailRotation()));
+
+                return true;
             }
         }
+
+        return false;
     }
 
     private Rotation getRailRotation() {
@@ -442,35 +449,44 @@ public class ExcavatorMinecartLogic {
     private void createTorch(BlockPos blockPos) {
         if (lastTorchPos != null && lastTorchPos.withinDistance(new Vector3d(blockPos.getX(), blockPos.getY(), blockPos.getZ()), TorchPlacementDistance))
             return;
+
         if (miningDir == null) return;
+        if (torchTypeItem == null) return;
 
-        if (torchTypeItem != null) {
-            if (isCreativeMode() || minecartEntity.reduceInventoryItem(torchTypeItem)) {
-                Block torchBlock;
-                if(torchTypeItem == Items.TORCH){
-                    torchBlock = Blocks.WALL_TORCH;
-                }else if(torchTypeItem == Items.REDSTONE_TORCH){
-                    torchBlock = Blocks.REDSTONE_WALL_TORCH;
-                    blockPos = blockPos.down(); //one down
-                }else if(torchTypeItem == Items.SOUL_TORCH){
-                    torchBlock = Blocks.SOUL_WALL_TORCH;
-                }else{
-                    torchBlock = null;
-                }
+        Block torchBlock;
+        if (torchTypeItem == Items.TORCH) {
+            torchBlock = Blocks.WALL_TORCH;
+        } else if (torchTypeItem == Items.REDSTONE_TORCH) {
+            torchBlock = Blocks.REDSTONE_WALL_TORCH;
+            blockPos = blockPos.down(); //one down
+        } else if (torchTypeItem == Items.SOUL_TORCH) {
+            torchBlock = Blocks.SOUL_WALL_TORCH;
+        } else {
+            torchBlock = null;
+        }
 
-                if (world.getBlockState(blockPos).isIn(Blocks.WALL_TORCH) || world.getBlockState(blockPos).isIn(Blocks.REDSTONE_TORCH) || world.getBlockState(blockPos).isIn(Blocks.SOUL_TORCH)){
-                    lastTorchPos = blockPos;
-                }else{
-                    if(torchBlock != null){
-                        if(!isAir(blockPos.offset(miningDir.rotateY(), 1))){
-                            world.setBlockState(blockPos, torchBlock.getDefaultState().with(HorizontalBlock.HORIZONTAL_FACING, miningDir.rotateYCCW()));
-                            lastTorchPos = blockPos;
-                        }else if(!isAir(blockPos.offset(miningDir.rotateYCCW(), 1))){
-                            world.setBlockState(blockPos, torchBlock.getDefaultState().with(HorizontalBlock.HORIZONTAL_FACING, miningDir.rotateY()));
-                            lastTorchPos = blockPos;
-                        }
-                    }
-                }
+        BlockState targetBlockState = world.getBlockState(blockPos);
+
+        if (targetBlockState.isIn(Blocks.WALL_TORCH)
+                || targetBlockState.isIn(Blocks.REDSTONE_TORCH)
+                || targetBlockState.isIn(Blocks.SOUL_TORCH)) {
+            lastTorchPos = blockPos;
+            return;
+        }
+
+        //create new torch
+        if (torchBlock != null) {
+            Direction torchDir = null;
+            if (!isAir(blockPos.offset(miningDir.rotateY(), 1))) {
+                torchDir = miningDir.rotateYCCW();
+            } else if (!isAir(blockPos.offset(miningDir.rotateYCCW(), 1))) {
+                torchDir = miningDir.rotateY();
+            }
+
+            //place torch
+            if (torchDir != null && (isServerCreativeMode() || minecartEntity.reduceInventoryItem(torchTypeItem))) {
+                world.setBlockState(blockPos, torchBlock.getDefaultState().with(HorizontalBlock.HORIZONTAL_FACING, torchDir));
+                lastTorchPos = blockPos;
             }
         }
     }
