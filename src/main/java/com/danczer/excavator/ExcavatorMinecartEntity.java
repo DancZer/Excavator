@@ -24,9 +24,7 @@ import net.minecraft.tileentity.IHopper;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EntityPredicates;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.GameRules;
-import net.minecraft.world.GameType;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.FMLPlayMessages;
 import net.minecraftforge.fml.network.NetworkHooks;
@@ -41,14 +39,10 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final double PushForce = 0.02;
     private static final double CollectBlockWithHardness = 3f;
 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this);
 
-    private int prevPushMinedBlockCount;
-    private int prevPlacedTrackCount;
-    private int prevPlacedTorchCount;
 
     private boolean isBlocked = true;
     private int transferTicker = -1;
@@ -76,7 +70,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     }
 
     public BlockState getDefaultDisplayTile() {
-        return Blocks.OBSERVER.getDefaultState();
+        return Blocks.REDSTONE_BLOCK.getDefaultState();
     }
 
     public int getDefaultDisplayTileOffset() {
@@ -138,8 +132,8 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
-            if (itemStack.getItem() == logic.getRailTypeItem()) continue;
-            if (itemStack.getItem() == logic.getTorchTypeItem()) continue;
+            if (itemStack.getItem() == logic.railTypeItem) continue;
+            if (itemStack.getItem() == logic.torchTypeItem) continue;
 
             if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxStackSize()) return false;
         }
@@ -163,97 +157,67 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         this.isBlocked = compound.contains("Enabled") ? compound.getBoolean("Enabled") : true;
     }
 
+
     public void tick() {
-        logic.setRailTypeItem((BlockItem)Blocks.RAIL.asItem());
-        logic.setTorchTypeItem((BlockItem)Blocks.WALL_TORCH.asItem());
+        //minecart tick only if rolling
+        if(logic.miningStatus != ExcavatorMinecartLogic.MiningStatus.MiningInProgress){
+            super.tick();
+        }
 
         excavatorTick();
-
-        super.tick();
 
         hopperTick();
     }
 
-    private boolean isCreativeMode() {
-        return world.getServer() != null && world.getServer().getGameType() == GameType.CREATIVE;
-    }
-
     private void excavatorTick() {
         if (!this.world.isRemote && this.isAlive() && this.getBlocked()) {
+            logic.railTypeItem = findRailTypeItem();
+            logic.torchTypeItem = findTorchTypeItem();
+
             boolean isFull = isInventoryFull();
 
-            boolean hasRails = true;
-            boolean hasTorch = true;
-
-            if (!isCreativeMode()) {
-                hasRails = hasInventoryItem(logic.getRailTypeItem());
-                hasTorch = hasInventoryItem(logic.getTorchTypeItem());
-            }
-
             LOGGER.debug("isFull: " + isFull);
-            LOGGER.debug("hasRails: " + hasRails);
-            LOGGER.debug("hasTorch: " + hasTorch);
 
-            if (!isFull && hasRails && hasTorch) {
+            if (!isFull) {
                 logic.tick();
 
-                setMiningStatus(logic.pathMiningStatus);
+                setMiningStatus(logic.miningStatus);
 
-                LOGGER.debug("Logic Hazard: " + logic.pathMiningStatus);
-
-                if (logic.pathMiningStatus == ExcavatorMinecartLogic.MiningStatus.MiningInProgress) {
-                    if (prevPushMinedBlockCount != logic.getMinedBlockCount()) {
-                        prevPushMinedBlockCount = logic.getMinedBlockCount();
-                        //push it a bit to the direction
-                        setMotion(logic.getDirectoryVector().scale(PushForce));
-                        LOGGER.debug("Logic setMotion: Push");
-                    } else {
-                        LOGGER.debug("Logic setMotion: leave");
-                    }
-                } else if (logic.pathMiningStatus != ExcavatorMinecartLogic.MiningStatus.Rolling){
-                    LOGGER.debug("Logic setMotion: ZERO");
-                    setMotion(Vector3d.ZERO);
-                }
+                LOGGER.debug("Logic MiningStatus: " + logic.miningStatus);
             } else {
-                if (!hasRails || !hasTorch) {
-                    setMiningStatus(ExcavatorMinecartLogic.MiningStatus.DepletedConsumable);
-                } else {
-                    setMiningStatus(ExcavatorMinecartLogic.MiningStatus.Rolling);
-                }
-            }
-
-            if (!isCreativeMode()) {
-                if (prevPlacedTorchCount != logic.getPlacedTorchCount()) {
-                    prevPlacedTorchCount = logic.getPlacedTorchCount();
-
-                    reduceInventoryItem(logic.getTorchTypeItem());
-                }
-
-                if (prevPlacedTrackCount != logic.getPlacedTrackCount()) {
-                    prevPlacedTrackCount = logic.getPlacedTrackCount();
-
-                    reduceInventoryItem(logic.getRailTypeItem());
-                }
+                setMiningStatus(ExcavatorMinecartLogic.MiningStatus.DepletedConsumable);
             }
         }
 
         if (rand.nextInt(4) == 0) {
-            ShowMiningStatus();
+            showMiningStatus();
         }
     }
 
-    private void reduceInventoryItem(Item item) {
+    public BlockItem findRailTypeItem()
+    {
+        return (BlockItem) Blocks.RAIL.asItem();
+    }
+
+    public BlockItem findTorchTypeItem()
+    {
+        return (BlockItem) Blocks.WALL_TORCH.asItem();
+    }
+
+    public boolean reduceInventoryItem(Item item) {
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
 
             if (!itemStack.isEmpty() && itemStack.getItem() == item) {
                 itemStack.shrink(1);
-                return;
+                return true;
             }
         }
+
+        return false;
     }
 
-    private boolean hasInventoryItem(Item item) {
+    public boolean hasInventoryItem(Item item) {
         boolean found = false;
         for (int i = 0; i < ExcavatorContainer.InventorySize; i++) {
             ItemStack itemStack = getStackInSlot(i);
@@ -266,7 +230,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         return found;
     }
 
-    private void ShowMiningStatus() {
+    private void showMiningStatus() {
         ExcavatorMinecartLogic.MiningStatus miningStatus = getMiningStatus();
         LOGGER.debug("Hazard: " + miningStatus);
 
