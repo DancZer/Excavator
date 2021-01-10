@@ -67,7 +67,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         Init();
     }
 
-    private void Init(){
+    private void Init() {
         Torches.clear();
         Torches.add(Items.TORCH);
         Torches.add(Items.REDSTONE_TORCH);
@@ -178,7 +178,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     public void tick() {
         //minecart tick only if rolling
-        if(logic.miningStatus != ExcavatorMinecartLogic.MiningStatus.MiningInProgress){
+        if (logic.miningStatus != ExcavatorMinecartLogic.MiningStatus.MiningInProgress) {
             super.tick();
         }
 
@@ -212,13 +212,11 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         }
     }
 
-    public BlockItem findRailTypeItem()
-    {
+    public BlockItem findRailTypeItem() {
         return findInventoryItem(Rails);
     }
 
-    public BlockItem findTorchTypeItem()
-    {
+    public BlockItem findTorchTypeItem() {
         return findInventoryItem(Torches);
     }
 
@@ -322,29 +320,26 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     }
 
     public boolean captureDroppedItems() {
-        if (HopperTileEntity.pullItems(this)) {
-            return true;
-        } else {
-            List<ItemEntity> list = this.world.getEntitiesWithinAABB(ItemEntity.class, this.getBoundingBox().grow(0.25D, 0.0D, 0.25D), EntityPredicates.IS_ALIVE);
+        List<ItemEntity> list = this.world.getEntitiesWithinAABB(ItemEntity.class, this.getBoundingBox().grow(0.25D, 0.0D, 0.25D), EntityPredicates.IS_ALIVE);
 
-            for (ItemEntity itemEntity : list) {
-                Item item = itemEntity.getItem().getItem();
+        for (ItemEntity itemEntity : list) {
+            Item item = itemEntity.getItem().getItem();
 
-                //collect only usefull blocks
-                if (item instanceof BlockItem) {
-                    BlockItem blockItem = (BlockItem) item;
-                    BlockState blockState = blockItem.getBlock().getDefaultState();
+            //collect only usefull blocks
+            if (item instanceof BlockItem) {
+                BlockItem blockItem = (BlockItem) item;
+                BlockState blockState = blockItem.getBlock().getDefaultState();
 
-                    if (blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= CollectBlockWithHardness) {
-                        HopperTileEntity.captureItem(this, itemEntity);
-                    }
-                } else {
+                if (item == Items.REDSTONE ||
+                        blockState.getRequiresTool() && blockState.getBlockHardness(world, getPosition()) >= CollectBlockWithHardness) {
                     HopperTileEntity.captureItem(this, itemEntity);
                 }
+            } else {
+                HopperTileEntity.captureItem(this, itemEntity);
             }
-
-            return false;
         }
+
+        return false;
     }
 
     public void killMinecart(DamageSource source) {
