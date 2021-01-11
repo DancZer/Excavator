@@ -59,6 +59,9 @@ public class ExcavatorMinecartLogic {
     private final World world;
     private final ExcavatorMinecartEntity minecartEntity;
 
+    private static final Item pickaxeItem = Items.IRON_PICKAXE;
+    private static final Item shovelItem = Items.IRON_SHOVEL;
+
     private BlockPos lastTorchPos;
     private BlockPos miningPos;
     private Direction miningDir;
@@ -383,10 +386,21 @@ public class ExcavatorMinecartLogic {
 
         BlockState blockState = world.getBlockState(miningPos);
 
-        LOGGER.debug("tickMining on " + blockState.getBlock().getRegistryName() + " at " + miningPos + ", getRequiresTool: " + blockState.getRequiresTool() + " ,getHarvestTool: " + (blockState.getHarvestTool() != null ? blockState.getHarvestTool().getName() : "nothing") + ", getBlockHardness: " + blockState.getBlockHardness(world, miningPos));
+        boolean isPickAxe = pickaxeItem.canHarvestBlock(blockState);
+        boolean isShovel = shovelItem.canHarvestBlock(blockState);
 
-        boolean isPickAxe = (blockState.getHarvestTool() == ToolType.PICKAXE && blockState.getBlockHardness(world, miningPos) <= 10f) || blockState.getBlock() == Blocks.NETHER_QUARTZ_ORE;
-        boolean isShovel = blockState.getHarvestTool() == ToolType.SHOVEL && blockState.getBlockHardness(world, miningPos) <= 10f;
+        float pickAxeSpeed = pickaxeItem.getDestroySpeed(new ItemStack(pickaxeItem), blockState);
+        float shovelSpeed = shovelItem.getDestroySpeed(new ItemStack(shovelItem), blockState);
+
+        float blockHardness = blockState.getBlockHardness(world, miningPos);
+
+        LOGGER.debug("tickMining on " + blockState.getBlock().getRegistryName() + " at " + miningPos +
+                ", pickaxe canHarvestBlock: " + isPickAxe +
+                " ,pickaxe getDestroySpeed: " +  pickAxeSpeed+
+                " ,shovelItem canHarvestBlock: " + isShovel +
+                " ,shovelItem getDestroySpeed: " + shovelSpeed+
+                " ,BlockHardness: " + blockHardness);
+
 
         int miningTime = -1;
 
@@ -394,13 +408,27 @@ public class ExcavatorMinecartLogic {
             miningBlockTick++;
             LOGGER.debug("isPickAxe:" + isPickAxe + ", isShovel:" + isShovel + ", miningBlockTick:" + miningBlockTick);
 
+            float miningSpeed;
+
             if (isPickAxe) {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_AXE_STRIP, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
                 miningTime = MiningTimePickAxe;
+                miningSpeed = pickAxeSpeed;
             } else {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
                 miningTime = MiningTimeShovel;
+                miningSpeed = shovelSpeed;
             }
+
+            float damage = miningSpeed / blockHardness /30f;
+            if(damage>1){
+                damage = 1f;
+            }
+
+            float ticks = (float) Math.ceil(1/damage);
+            float seconds = ticks/20;
+
+            LOGGER.debug("Mining time in ticks:"+ticks+", sec:"+seconds);
 
             int progress = (int) ((float) miningBlockTick / miningTime * 10.0F);
             if (progress != previousProgress) {
