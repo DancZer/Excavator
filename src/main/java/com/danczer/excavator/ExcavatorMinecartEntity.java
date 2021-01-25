@@ -25,6 +25,7 @@ import net.minecraft.tileentity.IHopper;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EntityPredicates;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.FMLPlayMessages;
@@ -42,6 +43,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
     private static final Logger LOGGER = LogManager.getLogger();
 
     private static final double CollectBlockWithHardness = 3f;
+    private static final double MinecartPushForce = 0.005;
 
     private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this);
 
@@ -177,12 +179,19 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
 
     public void tick() {
-        //minecart tick only if rolling
-        if (logic.miningStatus != ExcavatorMinecartLogic.MiningStatus.MiningInProgress) {
-            super.tick();
-        }
+        ExcavatorMinecartLogic.MiningStatus prevStatus = logic.miningStatus;
 
         excavatorTick();
+
+        if(logic.miningStatus == ExcavatorMinecartLogic.MiningStatus.Rolling){
+            if(prevStatus == ExcavatorMinecartLogic.MiningStatus.Mining){
+                LOGGER.debug("Minecart Pushed");
+                setMotion(logic.getDirectoryVector().scale(MinecartPushForce));
+            }
+            super.tick();
+        }else{
+            setMotion(Vector3d.ZERO);
+        }
 
         hopperTick();
     }
@@ -253,7 +262,7 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
         IParticleData particleType = null;
 
         switch (miningStatus) {
-            case MiningInProgress:
+            case Mining:
                 particleType = ParticleTypes.LARGE_SMOKE;
                 break;
             case HazardCliff:
@@ -270,6 +279,9 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
                 break;
             case DepletedConsumable:
                 particleType = ParticleTypes.WITCH;
+                break;
+            case EmergencyStop:
+                particleType = ParticleTypes.COMPOSTER;
                 break;
             case Rolling:
             default:
