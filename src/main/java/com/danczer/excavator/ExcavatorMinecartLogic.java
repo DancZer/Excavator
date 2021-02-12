@@ -10,6 +10,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.util.math.vector.Vector3f;
 import net.minecraft.world.GameType;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
@@ -133,12 +134,16 @@ public class ExcavatorMinecartLogic {
             case SOUTH:
             case WEST:
             case EAST:
-                return new Vector3d(miningDir.toVector3f()).normalize();
+                return new Vector3d(toVector3f(miningDir)).normalize();
             case DOWN:
             case UP:
             default:
                 return Vector3d.ZERO;
         }
+    }
+
+    public Vector3f toVector3f(Direction dir) {
+        return new Vector3f((float)dir.getXOffset(), (float)dir.getYOffset(), (float)dir.getZOffset());
     }
 
     public void tick() {
