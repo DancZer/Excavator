@@ -18,6 +18,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public class ExcavatorMod {
     public static EntityType<ExcavatorMinecartEntity> EXCAVATOR_ENTITY;
     public static ContainerType<ExcavatorContainer> EXCAVATOR_CONTAINER;
+    public static ExcavatorMinecartItem EXCAVATOR_ITEM;
 
     public ExcavatorMod() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ExcavatorMod::setupClient);
@@ -50,10 +51,10 @@ public class ExcavatorMod {
             itemProp.group(ItemGroup.TRANSPORTATION);
             itemProp.maxStackSize(1);
 
-            ExcavatorMinecartItem excavatorMinecartItem = new ExcavatorMinecartItem(itemProp);
-            excavatorMinecartItem.setRegistryName("excavator_minecart");
+            EXCAVATOR_ITEM = new ExcavatorMinecartItem(itemProp);
+            EXCAVATOR_ITEM.setRegistryName("excavator_minecart");
 
-            event.getRegistry().register(excavatorMinecartItem);
+            event.getRegistry().register(EXCAVATOR_ITEM);
         }
 
         @SubscribeEvent

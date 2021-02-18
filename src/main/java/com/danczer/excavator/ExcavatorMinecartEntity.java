@@ -36,6 +36,8 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.danczer.excavator.ExcavatorMod.EXCAVATOR_ITEM;
+
 public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements IHopper {
 
     private static final DataParameter<Integer> MINING_STATUS = EntityDataManager.createKey(FurnaceMinecartEntity.class, DataSerializers.VARINT);
@@ -87,6 +89,11 @@ public class ExcavatorMinecartEntity extends ContainerMinecartEntity implements 
 
     public AbstractMinecartEntity.Type getMinecartType() {
         return null;
+    }
+
+    public ItemStack getCartItem()
+    {
+        return new ItemStack(EXCAVATOR_ITEM);
     }
 
     public BlockState getDefaultDisplayTile() {
