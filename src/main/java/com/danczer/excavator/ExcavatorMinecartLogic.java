@@ -84,10 +84,6 @@ public class ExcavatorMinecartLogic {
         this.world = minecartEntity.world;
     }
 
-    private boolean isServerCreativeMode() {
-        return world.getServer() != null && world.getServer().getGameType() == GameType.CREATIVE;
-    }
-
     public void readAdditional(CompoundNBT compound) {
 
         long miningPos = compound.getLong("miningPos");
@@ -479,7 +475,7 @@ public class ExcavatorMinecartLogic {
         if (isRailTrack(blockPos) || isRailTrack(blockPos.offset(Direction.DOWN, 1))) return false;
 
         if (railTypeItem != null) {
-            if (isServerCreativeMode() || minecartEntity.reduceInventoryItem(railTypeItem)) {
+            if (minecartEntity.reduceInventoryItem(railTypeItem)) {
                 world.setBlockState(blockPos, railTypeItem.getBlock().getDefaultState().rotate(world, blockPos, getRailRotation()));
 
                 return true;
@@ -531,7 +527,7 @@ public class ExcavatorMinecartLogic {
             }
 
             //place torch
-            if (torchDir != null && (isServerCreativeMode() || minecartEntity.reduceInventoryItem(torchTypeItem))) {
+            if (torchDir != null && minecartEntity.reduceInventoryItem(torchTypeItem)) {
                 world.setBlockState(blockPos, torchBlock.getDefaultState().with(HorizontalBlock.HORIZONTAL_FACING, torchDir));
                 lastTorchPos = blockPos;
             }
