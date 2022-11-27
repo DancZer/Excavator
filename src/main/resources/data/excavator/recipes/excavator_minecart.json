@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ORH",
+    " M ",
+    "   "
+  ],
+  "key": {
+    "O": {
+      "item": "minecraft:observer"
+    },
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "M": {
+      "item": "minecraft:minecart"
+    }
+  },
+  "result": {
+    "item": "excavator:excavator_minecart"
+  }
+}

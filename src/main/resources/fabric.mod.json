@@ -12,14 +12,14 @@
     "repo": "https://github.com/DancZer/Excavator"
   },
   "license": "GPL-3.0",
-  "icon": "assets/excavator/icon.png",
+  "icon": "assets/excavator/logo.png",
   "environment": "*",
   "entrypoints": {
     "client": [
       "net.danczer.excavator.client.ExcavatorClient"
     ],
     "main": [
-      "net.danczer.excavator.Excavator"
+      "net.danczer.excavator.ExcavatorMod"
     ]
   },
   "mixins": [
