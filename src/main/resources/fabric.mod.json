@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "excavator",
+  "version": "${version}",
+  "name": "Excavator",
+  "description": "",
+  "authors": [
+    "DancZer"
+  ],
+  "contact": {
+    "website": "https://github.com/DancZer",
+    "repo": "https://github.com/DancZer/Excavator"
+  },
+  "license": "GPL-3.0",
+  "icon": "assets/excavator/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "net.danczer.excavator.client.ExcavatorClient"
+    ],
+    "main": [
+      "net.danczer.excavator.Excavator"
+    ]
+  },
+  "mixins": [
+    "excavator.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.10",
+    "fabric": "*",
+    "minecraft": "1.19.2"
+  }
+}
