@@ -7,7 +7,6 @@ import net.minecraft.block.dispenser.DispenserBehavior;
 import net.minecraft.block.dispenser.ItemDispenserBehavior;
 import net.minecraft.block.enums.RailShape;
 import net.minecraft.entity.vehicle.AbstractMinecartEntity;
-import net.minecraft.entity.vehicle.MinecartEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
@@ -29,7 +28,7 @@ public class ExcavatorMinecartItem extends Item {
         private final ItemDispenserBehavior defaultBehavior = new ItemDispenserBehavior();
 
         public ItemStack dispenseSilently(BlockPointer pointer, ItemStack stack) {
-            Direction direction = (Direction)pointer.getBlockState().get(DispenserBlock.FACING);
+            Direction direction = pointer.getBlockState().get(DispenserBlock.FACING);
             World world = pointer.getWorld();
             double d = pointer.getX() + (double)direction.getOffsetX() * 1.125;
             double e = Math.floor(pointer.getY()) + (double)direction.getOffsetY();
@@ -107,6 +106,6 @@ public class ExcavatorMinecartItem extends Item {
     }
 
     private static AbstractMinecartEntity create(World worldIn, double x, double y, double z) {
-        return new MinecartEntity(worldIn, x, y, z);
+        return new ExcavatorMinecartEntity(worldIn, x, y, z);
     }
 }
