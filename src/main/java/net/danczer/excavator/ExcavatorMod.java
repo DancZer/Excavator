@@ -3,6 +3,7 @@ package net.danczer.excavator;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
@@ -31,17 +32,23 @@ public class ExcavatorMod implements ModInitializer {
                     EXCAVATOR_IDENTIFIER,
                     new ScreenHandlerType<>(ExcavatorScreenHandler::new));
 
-    public static EntityType<ExcavatorMinecartEntity> EXCAVATOR_ENTITY =
-            Registry.register(
-            Registry.ENTITY_TYPE,
-            EXCAVATOR_IDENTIFIER,
+    public static EntityType<ExcavatorMinecartEntity> EXCAVATOR_ENTITY = Registry.register(
+                    Registry.ENTITY_TYPE,
+                    EXCAVATOR_IDENTIFIER,
                     FabricEntityTypeBuilder.create(SpawnGroup.MISC, ExcavatorMinecartEntity::new)
-                    .forceTrackedVelocityUpdates(true)
-                    .dimensions(EntityDimensions.fixed(0.98f, 0.7f))
-                    .trackRangeBlocks(8)
-                    .build());
+                        .forceTrackedVelocityUpdates(true)
+                        .dimensions(EntityDimensions.fixed(0.98f, 0.7f))
+                        .trackRangeBlocks(8)
+                        .build()
+    );
 
-    public static final TrackedData<Integer> MINING_STATUS = DataTracker.registerData(ExcavatorMinecartEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    public static final EntityType<CubeEntity> CUBE = Registry.register(
+            Registry.ENTITY_TYPE,
+            new Identifier("entitytesting", "cube"),
+            FabricEntityTypeBuilder.create(SpawnGroup.CREATURE, CubeEntity::new)
+                    .dimensions(EntityDimensions.fixed(0.75f, 0.75f))
+                    .build()
+    );
 
     @Override
     public void onInitialize() {

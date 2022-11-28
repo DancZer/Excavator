@@ -106,6 +106,6 @@ public class ExcavatorMinecartItem extends Item {
     }
 
     private static AbstractMinecartEntity create(World worldIn, double x, double y, double z) {
-        return new ExcavatorMinecartEntity(worldIn, x, y, z);
+       return  ExcavatorMinecartEntity.create(worldIn, x, y, z);
     }
 }

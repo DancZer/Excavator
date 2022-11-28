@@ -5,12 +5,14 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 
 public class ExcavatorScreenHandler extends ScreenHandler {
-    public static final int InventorySize = 9;
+    private static final int SlotSize = 18;
+    private static final int InventoryRowCount = 4;
+    private static final int InventoryColumnCount = 9;
+    public static final int InventorySize = InventoryRowCount * InventoryColumnCount;
     private final Inventory inventory;
 
     public ExcavatorScreenHandler(int syncId, PlayerInventory playerInventory) {
@@ -24,18 +26,15 @@ public class ExcavatorScreenHandler extends ScreenHandler {
 
         inventory.onOpen(playerInventory.player);
 
-        for (int j = 0; j < InventorySize; ++j) {
-            this.addSlot(new Slot(inventory, j, 8 + j * 18, 20));
+        for (int i = 0; i < InventorySize; ++i) {
+            int x = i %InventoryColumnCount;
+            int y = Math.floorDiv(i , InventoryColumnCount);
+
+            this.addSlot(new Slot(inventory, i, 8 + x * SlotSize, 20 + y * SlotSize));
         }
 
-        for (int l = 0; l < 3; ++l) {
-            for (int k = 0; k < 9; ++k) {
-                this.addSlot(new Slot(playerInventory, k + l * 9 + 9, 8 + k * 18, l * 18 + 51));
-            }
-        }
-
-        for (int i1 = 0; i1 < 9; ++i1) {
-            this.addSlot(new Slot(playerInventory, i1, 8 + i1 * 18, 109));
+        for (int i = 0; i < InventoryColumnCount; ++i) {
+            this.addSlot(new Slot(playerInventory, i, 8 + i * SlotSize, 109));
         }
     }
 
@@ -47,14 +46,14 @@ public class ExcavatorScreenHandler extends ScreenHandler {
     public ItemStack transferSlot(PlayerEntity player, int invSlot) {
         ItemStack newStack = ItemStack.EMPTY;
         Slot slot = this.slots.get(invSlot);
-        if (slot != null && slot.hasStack()) {
+        if (slot.hasStack()) {
             ItemStack originalStack = slot.getStack();
             newStack = originalStack.copy();
             if (invSlot < this.inventory.size()) {
-                if (!this.insertItem(originalStack, this.inventory.size(), this.slots.size(), true)) {
+                if (!this.insertItem(originalStack, 0, this.inventory.size(), false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (!this.insertItem(originalStack, 0, this.inventory.size(), false)) {
+            } else if (!this.insertItem(originalStack, this.inventory.size(), this.slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
 

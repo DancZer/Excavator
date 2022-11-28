@@ -2,25 +2,21 @@ package net.danczer.excavator;
 
 import net.minecraft.block.*;
 import net.minecraft.block.enums.RailShape;
-import net.minecraft.client.util.math.Vector3d;
-import net.minecraft.data.client.BlockStateVariant;
-import net.minecraft.data.client.VariantSettings;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.item.*;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.predicate.block.BlockStatePredicate;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.tag.BlockTags;
 import net.minecraft.tag.FluidTags;
 import net.minecraft.util.BlockRotation;
 import net.minecraft.util.math.*;
-import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class ExcavatorMinecartLogic {
+    private static final Logger LOGGER = LogManager.getLogger();
 
     public enum MiningStatus {
         Rolling(0),
@@ -30,7 +26,8 @@ public class ExcavatorMinecartLogic {
         HazardWater(4),
         HazardUnknownFluid(5),
         DepletedConsumable(6),
-        EmergencyStop(7);
+        InventoryIsFull(7),
+        EmergencyStop(8);
 
         public final int Value;
 
@@ -39,41 +36,30 @@ public class ExcavatorMinecartLogic {
         }
 
         public static MiningStatus Find(int value) {
-            switch (value) {
-                case 1:
-                    return MiningStatus.Mining;
-                case 2:
-                    return MiningStatus.HazardCliff;
-                case 3:
-                    return MiningStatus.HazardLava;
-                case 4:
-                    return MiningStatus.HazardWater;
-                case 5:
-                    return MiningStatus.HazardUnknownFluid;
-                case 6:
-                    return MiningStatus.DepletedConsumable;
-                case 7:
-                    return MiningStatus.EmergencyStop;
-                default:
-                    return MiningStatus.Rolling;
-            }
+            return switch (value) {
+                case 1 -> MiningStatus.Mining;
+                case 2 -> MiningStatus.HazardCliff;
+                case 3 -> MiningStatus.HazardLava;
+                case 4 -> MiningStatus.HazardWater;
+                case 5 -> MiningStatus.HazardUnknownFluid;
+                case 6 -> MiningStatus.DepletedConsumable;
+                case 7 -> MiningStatus.InventoryIsFull;
+                case 8 -> MiningStatus.EmergencyStop;
+                default -> MiningStatus.Rolling;
+            };
         }
     }
-
-    private static final Logger LOGGER = LogManager.getLogger();
-
 
     private final static int MiningTimeShovel = 8;
     private final static int MiningTimePickAxe = 19;
     private final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
     private final static float MaxMiningHardness = 50f; //Obsidian
+    private static final Item pickaxeItem = Items.IRON_PICKAXE;
+    private static final Item shovelItem = Items.IRON_SHOVEL;
 
     private final World world;
     private final ExcavatorMinecartEntity minecartEntity;
-
-    private static final Item pickaxeItem = Items.IRON_PICKAXE;
-    private static final Item shovelItem = Items.IRON_SHOVEL;
 
     private BlockPos lastTorchPos;
     private BlockPos miningPos;
@@ -82,8 +68,6 @@ public class ExcavatorMinecartLogic {
     private int miningBlockTick = 0;
     private int miningStackTick = 0;
     private int previousProgress = 0;
-
-    private boolean isMinecartTurning;
 
     public BlockItem railTypeItem;
     public BlockItem torchTypeItem;
@@ -224,7 +208,7 @@ public class ExcavatorMinecartLogic {
         RailShape railShape = bs.get(railBlock.getShapeProperty());
 
         LOGGER.debug("minecartEntity railShape: " + railShape);
-        isMinecartTurning = false;
+        boolean isMinecartTurning = false;
 
         //fix detection on turns
         if (dir == Direction.NORTH || dir == Direction.SOUTH) {
@@ -475,6 +459,7 @@ public class ExcavatorMinecartLogic {
         boolean railCreated = createRail(frontPos.offset(Direction.UP, 0));
 
         //Do not create torch if rolling on existing rails
+        //TODO check torch along the line
         if (railCreated) {
             createTorch(frontPos.offset(Direction.UP, 2));
         }
