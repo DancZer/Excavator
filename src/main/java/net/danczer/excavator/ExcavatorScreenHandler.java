@@ -7,63 +7,67 @@ import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ExcavatorScreenHandler extends ScreenHandler {
-    private static final int SlotSize = 18;
-    private static final int InventoryRowCount = 4;
-    private static final int InventoryColumnCount = 9;
-    public static final int InventorySize = InventoryRowCount * InventoryColumnCount;
-    private final Inventory inventory;
+    public static final int InventorySize = 9;
+    private final Inventory excavatorInventory;
 
     public ExcavatorScreenHandler(int syncId, PlayerInventory playerInventory) {
         this(syncId, playerInventory, new SimpleInventory(InventorySize));
     }
 
-    public ExcavatorScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory) {
+
+    public ExcavatorScreenHandler(int syncId, PlayerInventory playerInventory, Inventory excavatorInventory) {
         super(ExcavatorMod.EXCAVATOR_SCREEN_HANDLER, syncId);
-        checkSize(inventory, InventorySize);
-        this.inventory = inventory;
+        this.excavatorInventory = excavatorInventory;
+        checkSize(excavatorInventory, InventorySize);
+        excavatorInventory.onOpen(playerInventory.player);
 
-        inventory.onOpen(playerInventory.player);
-
-        for (int i = 0; i < InventorySize; ++i) {
-            int x = i %InventoryColumnCount;
-            int y = Math.floorDiv(i , InventoryColumnCount);
-
-            this.addSlot(new Slot(inventory, i, 8 + x * SlotSize, 20 + y * SlotSize));
+        for (int colIdx = 0; colIdx < InventorySize; ++colIdx) {
+            this.addSlot(new Slot(excavatorInventory, colIdx, 8 + colIdx * 18, 20));
         }
 
-        for (int i = 0; i < InventoryColumnCount; ++i) {
-            this.addSlot(new Slot(playerInventory, i, 8 + i * SlotSize, 109));
+        for (int rowIdx = 0; rowIdx < 3; ++rowIdx) {
+            for (int colIdx = 0; colIdx < 9; ++colIdx) {
+                this.addSlot(new Slot(playerInventory, colIdx + rowIdx * 9 + 9, 8 + colIdx * 18, rowIdx * 18 + 51));
+            }
+        }
+
+        for (int colIdx = 0; colIdx < 9; ++colIdx) {
+            this.addSlot(new Slot(playerInventory, colIdx, 8 + colIdx * 18, 109));
         }
     }
 
-    @Override
-    public boolean canUse(PlayerEntity player) { return this.inventory.canPlayerUse(player); }
+    public boolean canUse(PlayerEntity player) { return this.excavatorInventory.canPlayerUse(player); }
 
-    // Shift + Player Inv Slot
-    @Override
-    public ItemStack transferSlot(PlayerEntity player, int invSlot) {
-        ItemStack newStack = ItemStack.EMPTY;
-        Slot slot = this.slots.get(invSlot);
-        if (slot.hasStack()) {
-            ItemStack originalStack = slot.getStack();
-            newStack = originalStack.copy();
-            if (invSlot < this.inventory.size()) {
-                if (!this.insertItem(originalStack, 0, this.inventory.size(), false)) {
+    public ItemStack transferSlot(PlayerEntity player, int index) {
+        ItemStack itemStack = ItemStack.EMPTY;
+        Slot slot = getSlot(index);
+        if (slot != null && slot.hasStack()) {
+            ItemStack itemStack2 = slot.getStack();
+            itemStack = itemStack2.copy();
+            if (index < this.excavatorInventory.size()) {
+                if (!this.insertItem(itemStack2, this.excavatorInventory.size(), this.slots.size(), true)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (!this.insertItem(originalStack, this.inventory.size(), this.slots.size(), true)) {
+            } else if (!this.insertItem(itemStack2, 0, this.excavatorInventory.size(), false)) {
                 return ItemStack.EMPTY;
             }
 
-            if (originalStack.isEmpty()) {
+            if (itemStack2.isEmpty()) {
                 slot.setStack(ItemStack.EMPTY);
             } else {
                 slot.markDirty();
             }
         }
 
-        return newStack;
+        return itemStack;
+    }
+
+    public void close(PlayerEntity player) {
+        super.close(player);
+        this.excavatorInventory.onClose(player);
     }
 }

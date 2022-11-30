@@ -19,8 +19,8 @@ public class ExcavatorScreen extends HandledScreen<ExcavatorScreenHandler> {
     @Override
     protected void init() {
         super.init();
-        // Center the title
-        titleX = (backgroundWidth - textRenderer.getWidth(title)) / 2;
+
+        playerInventoryTitleY = 8 + 20 + textRenderer.fontHeight + 3;
     }
 
     @Override

@@ -49,20 +49,13 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     private static final float CollectBlockWithHardness = 3f;
     private static final float MinecartPushForce = 0.005f;
 
-    private final ExcavatorMinecartLogic logic = new ExcavatorMinecartLogic(this);
+    private final ExcavationLogic excavationLogic = new ExcavationLogic(this);
     private boolean enabled = true;
     private int transferTicker = -1;
     private final BlockPos lastPosition = BlockPos.ORIGIN;
 
     public ExcavatorMinecartEntity(EntityType<? extends StorageMinecartEntity> entityType, World world) {
         super(entityType, world);
-
-        for (int i = 0; i < Torches.size(); i++) {
-            LOGGER.debug("Torches: "+Torches.get(i).getName());
-        }
-        for (int i = 0; i < Torches.size(); i++) {
-            LOGGER.debug("Rails: "+Torches.get(i).getName());
-        }
     }
 
     private ExcavatorMinecartEntity(World world, double x, double y, double z) {
@@ -77,6 +70,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         super.initDataTracker();
         this.dataTracker.startTracking(MINING_STATUS, 0);
     }
+
     public AbstractMinecartEntity.Type getMinecartType() {
         return null;
     }
@@ -87,7 +81,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     public ItemStack getPickBlockStack()
     {
-        return new ItemStack(ExcavatorMod.EXCAVATOR_MINECART_ITEM);
+        return new ItemStack(getItem());
     }
 
     public BlockState getDefaultContainedBlock() {
@@ -104,13 +98,6 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     public ExcavatorScreenHandler getScreenHandler(int id, PlayerInventory playerInventoryIn) {
         return new ExcavatorScreenHandler(id, playerInventoryIn, this);
-    }
-
-    public void onActivatorRail(int x, int y, int z, boolean powered) {
-        boolean bl = !powered;
-        if (bl != this.isEnabled()) {
-            this.setEnabled(bl);
-        }
     }
 
     public boolean isEnabled() {
@@ -137,49 +124,22 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         return this.getZ();
     }
 
-    public boolean isInventoryFull() {
-        for (int i = 0; i < size(); i++) {
-            ItemStack itemStack = getStack(i);
-            Item item = itemStack.getItem();
-
-            if (item == logic.railTypeItem) continue;
-            if (item == logic.torchTypeItem) continue;
-
-            if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxCount()) return false;
+    public void onActivatorRail(int x, int y, int z, boolean powered) {
+        boolean bl = !powered;
+        if (bl != this.isEnabled()) {
+            this.setEnabled(bl);
         }
-
-        return true;
-    }
-
-    @Override
-    public NbtCompound writeNbt(NbtCompound compound) {
-        logic.writeNbt(compound);
-
-        compound.putInt("TransferCooldown", this.transferTicker);
-        compound.putBoolean("Enabled", this.enabled);
-
-        return super.writeNbt(compound);
-    }
-
-    @Override
-    public void readNbt(NbtCompound compound) {
-        super.readNbt(compound);
-
-        logic.readNbt(compound);
-
-        this.transferTicker = compound.getInt("TransferCooldown");
-        this.enabled = !compound.contains("Enabled") || compound.getBoolean("Enabled");
     }
 
     public void tick() {
-        ExcavatorMinecartLogic.MiningStatus prevStatus = logic.miningStatus;
+        ExcavationLogic.MiningStatus prevStatus = excavationLogic.miningStatus;
 
         excavatorTick();
 
-        if(logic.miningStatus == ExcavatorMinecartLogic.MiningStatus.Rolling){
-            if(prevStatus == ExcavatorMinecartLogic.MiningStatus.Mining){
+        if(excavationLogic.miningStatus == ExcavationLogic.MiningStatus.Rolling){
+            if(prevStatus == ExcavationLogic.MiningStatus.Mining){
                 LOGGER.debug("Minecart Pushed");
-                setVelocity(logic.getDirectoryVector().multiply(MinecartPushForce));
+                setVelocity(excavationLogic.getDirectoryVector().multiply(MinecartPushForce));
             }
             super.tick();
         }else{
@@ -191,27 +151,41 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     private void excavatorTick() {
         if (this.world.isClient && this.isAlive() && this.isEnabled()) {
-            logic.railTypeItem = findRailTypeItem();
-            logic.torchTypeItem = findTorchTypeItem();
+            excavationLogic.railTypeItem = findRailTypeItem();
+            excavationLogic.torchTypeItem = findTorchTypeItem();
 
             boolean isFull = isInventoryFull();
 
-            LOGGER.debug("isFull: " + isFull + ", railTypeItem: "+logic.railTypeItem+", torchTypeItem:"+logic.torchTypeItem);
+            LOGGER.debug("isFull: " + isFull + ", railTypeItem: "+ excavationLogic.railTypeItem+", torchTypeItem:"+ excavationLogic.torchTypeItem);
 
             if (isFull) {
-                setMiningStatus(ExcavatorMinecartLogic.MiningStatus.InventoryIsFull);
+                setMiningStatus(ExcavationLogic.MiningStatus.InventoryIsFull);
             } else {
-                logic.tick();
+                excavationLogic.tick();
 
-                setMiningStatus(logic.miningStatus);
+                setMiningStatus(excavationLogic.miningStatus);
             }
 
-            LOGGER.debug("Logic MiningStatus: " + logic.miningStatus);
+            LOGGER.debug("Logic MiningStatus: " + excavationLogic.miningStatus);
 
             if (this.random.nextInt(4) == 0) {
                 showMiningStatus();
             }
         }
+    }
+
+    public boolean isInventoryFull() {
+        for (int i = 0; i < size(); i++) {
+            ItemStack itemStack = getStack(i);
+            Item item = itemStack.getItem();
+
+            if (item == excavationLogic.railTypeItem) continue;
+            if (item == excavationLogic.torchTypeItem) continue;
+
+            if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxCount()) return false;
+        }
+
+        return true;
     }
 
     public BlockItem findRailTypeItem() {
@@ -225,7 +199,6 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     public BlockItem findInventoryItem(List<Item> items) {
         for (int i = 0; i < size(); i++) {
             ItemStack itemStack = getStack(i);
-
             Item item = itemStack.getItem();
 
             LOGGER.debug("findInventoryItem: itemStack:"+itemStack.getName()+", item:" + item.getName());
@@ -251,7 +224,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     private void showMiningStatus() {
-        ExcavatorMinecartLogic.MiningStatus miningStatus = getMiningStatus();
+        ExcavationLogic.MiningStatus miningStatus = getMiningStatus();
         LOGGER.debug("Hazard: " + miningStatus);
 
         ParticleEffect particleType = null;
@@ -291,11 +264,11 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         }
     }
 
-    private ExcavatorMinecartLogic.MiningStatus getMiningStatus() {
-        return ExcavatorMinecartLogic.MiningStatus.Find(this.getDataTracker().get(MINING_STATUS));
+    private ExcavationLogic.MiningStatus getMiningStatus() {
+        return ExcavationLogic.MiningStatus.Find(this.getDataTracker().get(MINING_STATUS));
     }
 
-    private void setMiningStatus(ExcavatorMinecartLogic.MiningStatus miningStatus) {
+    private void setMiningStatus(ExcavationLogic.MiningStatus miningStatus) {
         this.dataTracker.set(MINING_STATUS, miningStatus.Value);
     }
 
@@ -336,9 +309,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
             Item item = itemEntity.getStack().getItem();
 
             //collect only usefull blocks
-            if (item instanceof BlockItem) {
-                BlockItem blockItem = (BlockItem) item;
-
+            if (item instanceof BlockItem blockItem) {
                 if (shouldCollectItem(blockItem)) {
                     HopperBlockEntity.extract(this, itemEntity);
                 }
@@ -363,5 +334,25 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
             this.dropItem(Blocks.REDSTONE_BLOCK);
             this.dropItem(Blocks.HOPPER);
         }
+    }
+
+    @Override
+    public NbtCompound writeNbt(NbtCompound compound) {
+        excavationLogic.writeNbt(compound);
+
+        compound.putInt("TransferCooldown", this.transferTicker);
+        compound.putBoolean("Enabled", this.enabled);
+
+        return super.writeNbt(compound);
+    }
+
+    @Override
+    public void readNbt(NbtCompound compound) {
+        super.readNbt(compound);
+
+        excavationLogic.readNbt(compound);
+
+        this.transferTicker = compound.getInt("TransferCooldown");
+        this.enabled = !compound.contains("Enabled") || compound.getBoolean("Enabled");
     }
 }

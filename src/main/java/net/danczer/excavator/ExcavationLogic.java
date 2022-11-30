@@ -15,7 +15,7 @@ import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class ExcavatorMinecartLogic {
+public class ExcavationLogic {
     private static final Logger LOGGER = LogManager.getLogger();
 
     public enum MiningStatus {
@@ -74,7 +74,7 @@ public class ExcavatorMinecartLogic {
 
     public MiningStatus miningStatus = MiningStatus.Rolling;
 
-    public ExcavatorMinecartLogic(ExcavatorMinecartEntity minecartEntity) {
+    public ExcavationLogic(ExcavatorMinecartEntity minecartEntity) {
         this.minecartEntity = minecartEntity;
         this.world = minecartEntity.world;
     }
