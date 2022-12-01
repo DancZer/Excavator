@@ -2,7 +2,9 @@ package net.danczer.excavator;
 
 import net.minecraft.block.*;
 import net.minecraft.block.enums.RailShape;
+import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.fluid.FluidState;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.*;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.sound.SoundCategory;
@@ -15,6 +17,9 @@ import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ExcavationLogic {
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -25,7 +30,7 @@ public class ExcavationLogic {
         HazardLava(3),
         HazardWater(4),
         HazardUnknownFluid(5),
-        DepletedConsumable(6),
+        MissingToolchain(6),
         InventoryIsFull(7),
         EmergencyStop(8);
 
@@ -42,7 +47,7 @@ public class ExcavationLogic {
                 case 3 -> MiningStatus.HazardLava;
                 case 4 -> MiningStatus.HazardWater;
                 case 5 -> MiningStatus.HazardUnknownFluid;
-                case 6 -> MiningStatus.DepletedConsumable;
+                case 6 -> MiningStatus.MissingToolchain;
                 case 7 -> MiningStatus.InventoryIsFull;
                 case 8 -> MiningStatus.EmergencyStop;
                 default -> MiningStatus.Rolling;
@@ -50,16 +55,46 @@ public class ExcavationLogic {
         }
     }
 
+    public static final List<Item> USABLE_RAIL_ITEMS = new ArrayList<>();
+    public static final List<Item> USABLE_TORCH_ITEMS = new ArrayList<>();
+
+    public static final List<Item> USABLE_PICKAXE_ITEMS = new ArrayList<>();
+
+    public static final List<Item> USABLE_SHOVEL_ITEMS = new ArrayList<>();
+
+    static {
+        USABLE_TORCH_ITEMS.add(Items.TORCH);
+        USABLE_TORCH_ITEMS.add(Items.REDSTONE_TORCH);
+        USABLE_TORCH_ITEMS.add(Items.SOUL_TORCH);
+
+        USABLE_RAIL_ITEMS.add(Items.RAIL);
+        USABLE_RAIL_ITEMS.add(Items.POWERED_RAIL);
+
+        USABLE_PICKAXE_ITEMS.add(Items.NETHERITE_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add(Items.DIAMOND_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add(Items.GOLDEN_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add(Items.IRON_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add(Items.STONE_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add(Items.WOODEN_PICKAXE);
+
+        USABLE_SHOVEL_ITEMS.add(Items.NETHERITE_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add(Items.DIAMOND_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add(Items.IRON_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add(Items.GOLDEN_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add(Items.STONE_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add(Items.WOODEN_SHOVEL);
+    }
+
     private final static int MiningTimeShovel = 8;
     private final static int MiningTimePickAxe = 19;
     private final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
     private final static float MaxMiningHardness = 50f; //Obsidian
-    private static final Item pickaxeItem = Items.IRON_PICKAXE;
-    private static final Item shovelItem = Items.IRON_SHOVEL;
 
     private final World world;
-    private final ExcavatorMinecartEntity minecartEntity;
+
+    private final Inventory excavatorInventory;
+    private final AbstractMinecartEntity minecartEntity;
 
     private BlockPos lastTorchPos;
     private BlockPos miningPos;
@@ -69,13 +104,16 @@ public class ExcavationLogic {
     private int miningStackTick = 0;
     private int previousProgress = 0;
 
-    public BlockItem railTypeItem;
-    public BlockItem torchTypeItem;
+    public BlockItem railType;
+    public BlockItem torchType;
+    public MiningToolItem pickaxeType;
+    public MiningToolItem shovelType;
 
     public MiningStatus miningStatus = MiningStatus.Rolling;
 
-    public ExcavationLogic(ExcavatorMinecartEntity minecartEntity) {
+    public ExcavationLogic(AbstractMinecartEntity minecartEntity, Inventory inventory) {
         this.minecartEntity = minecartEntity;
+        this.excavatorInventory = inventory;
         this.world = minecartEntity.world;
     }
 
@@ -109,6 +147,53 @@ public class ExcavationLogic {
         miningStackTick = compound.getInt("miningCountTick");
     }
 
+    public void updateExcavatorToolchain() {
+
+        int latestTorchItemIdx = Integer.MAX_VALUE;
+        int latestRailItemIdx = Integer.MAX_VALUE;
+        int latestPickaxeItemIdx = Integer.MAX_VALUE;
+        int latestShovelItemIdx = Integer.MAX_VALUE;
+
+        torchType = null;
+        railType = null;
+        pickaxeType = null;
+        shovelType = null;
+
+        for (int i = 0; i < excavatorInventory.size(); i++) {
+            ItemStack itemStack = excavatorInventory.getStack(i);
+            Item item = itemStack.getItem();
+
+            if(itemStack.isEmpty()) continue;
+
+            if (item instanceof BlockItem) {
+                int idx;
+
+                if((idx = USABLE_TORCH_ITEMS.indexOf(item)) >=0 && latestTorchItemIdx > idx){
+                    latestTorchItemIdx = idx;
+                    torchType = (BlockItem) item;
+                }
+
+                if((idx = USABLE_RAIL_ITEMS.indexOf(item)) >=0 && latestRailItemIdx > idx){
+                    latestRailItemIdx = idx;
+                    railType = (BlockItem) item;
+                }
+            }else if (item instanceof MiningToolItem) {
+                int idx;
+
+                if((idx = USABLE_PICKAXE_ITEMS.indexOf(item)) >=0 && latestPickaxeItemIdx > idx){
+                    latestPickaxeItemIdx = idx;
+                    pickaxeType = (MiningToolItem) item;
+                }
+
+                if((idx = USABLE_SHOVEL_ITEMS.indexOf(item)) >=0 && latestShovelItemIdx > idx){
+                    latestShovelItemIdx = idx;
+                    shovelType = (MiningToolItem) item;
+                }
+            }
+        }
+    }
+
+
     public void writeNbt(NbtCompound compound) {
         compound.putLong("miningPos", miningPos == null ? 0 : miningPos.asLong());
         compound.putLong("lastTorchPos", lastTorchPos == null ? 0 : lastTorchPos.asLong());
@@ -135,27 +220,31 @@ public class ExcavationLogic {
         }
     }
 
+    public boolean isToolchainSet(){
+        return railType != null && torchType != null && pickaxeType != null && shovelType != null;
+    }
+
     public void tick() {
-        if (railTypeItem == null || torchTypeItem == null) {
+        if (!isToolchainSet()) {
             resetMining();
-            miningStatus = MiningStatus.DepletedConsumable;
+            miningStatus = MiningStatus.MissingToolchain;
+            return;
+        }
+
+        if(isInventoryFull()){
+            miningStatus = MiningStatus.InventoryIsFull;
             return;
         }
 
         BlockPos minecartPos = minecartEntity.getBlockPos();
-        LOGGER.debug("minecartEntity minecartPos: " + minecartPos);
 
         BlockPos frontPos = getMiningPlace(minecartPos);
-
-        LOGGER.debug("FrontPos: " + frontPos);
 
         //not on rail or other issue
         if (frontPos == null) {
             resetMining();
         } else {
             miningStatus = checkFrontStatus(frontPos, minecartPos);
-
-            LOGGER.debug("miningStatus: " + miningStatus);
 
             //nothing to do
             if (miningStatus == MiningStatus.Rolling) {
@@ -164,8 +253,6 @@ public class ExcavationLogic {
                 if (miningPos == null) {
                     beginMining(frontPos.offset(Direction.UP, MiningCountZ - 1));
                     miningStackTick = 0;
-
-                    LOGGER.debug("beginMining");
                 } else {
                     boolean isBlockMined = tickBlockMining();
 
@@ -183,12 +270,33 @@ public class ExcavationLogic {
         }
     }
 
+    public boolean isInventoryFull() {
+        for (int i = 0; i < excavatorInventory.size(); i++) {
+            ItemStack itemStack = excavatorInventory.getStack(i);
+            Item item = itemStack.getItem();
+
+            if (isToolchainItem(item)) continue;
+
+            if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxCount()) return false;
+        }
+
+        return true;
+    }
+
+    private boolean isToolchainItem(Item item) {
+        if (item instanceof BlockItem) {
+            return USABLE_TORCH_ITEMS.contains(item) || USABLE_RAIL_ITEMS.contains(item);
+        }else if (item instanceof MiningToolItem) {
+            return USABLE_PICKAXE_ITEMS.contains(item) || USABLE_SHOVEL_ITEMS.contains(item);
+        }
+
+        return false;
+    }
+
     private BlockPos getMiningPlace(BlockPos pos) {
         if (!isRailTrack(pos)) return null;
 
         Vec3d motion = minecartEntity.getVelocity();
-
-        LOGGER.debug("minecartEntity getMotion: " + motion);
 
         Direction dir;
 
@@ -198,8 +306,6 @@ public class ExcavationLogic {
             dir = Direction.getFacing(motion.x, motion.y, motion.z);
         }
 
-        LOGGER.debug("minecartEntity dir: " + dir);
-
         if (dir == null) return null;
 
         BlockState bs = world.getBlockState(pos);
@@ -207,7 +313,6 @@ public class ExcavationLogic {
 
         RailShape railShape = bs.get(railBlock.getShapeProperty());
 
-        LOGGER.debug("minecartEntity railShape: " + railShape);
         boolean isMinecartTurning = false;
 
         //fix detection on turns
@@ -240,9 +345,6 @@ public class ExcavationLogic {
                         railShape == RailShape.ASCENDING_WEST && dir == Direction.WEST ||
                         railShape == RailShape.ASCENDING_NORTH && dir == Direction.NORTH ||
                         railShape == RailShape.ASCENDING_SOUTH && dir == Direction.SOUTH;
-
-        LOGGER.debug("minecartEntity isMinecartTurning: " + isMinecartTurning);
-        LOGGER.debug("minecartEntity adjusted dir: " + dir);
 
         miningDir = dir;
 
@@ -393,27 +495,16 @@ public class ExcavationLogic {
         boolean mineAllowed = blockHardness >= 0f && blockHardness < MaxMiningHardness;
 
         boolean byHand = !blockState.isToolRequired();
-        boolean isPickAxe = pickaxeItem.isSuitableFor(blockState);
-        boolean isShovel = shovelItem.isSuitableFor(blockState);
+        boolean isPickAxe = pickaxeType.isSuitableFor(blockState);
+        boolean isShovel = shovelType.isSuitableFor(blockState);
 
-        float pickAxeSpeed = pickaxeItem.getMiningSpeedMultiplier(new ItemStack(pickaxeItem), blockState);
-        float shovelSpeed = shovelItem.getMiningSpeedMultiplier(new ItemStack(shovelItem), blockState);
-
-        LOGGER.debug("tickMining on " + blockState.getBlock().getName() + " at " + miningPos +
-                ", mineAllowed: " + mineAllowed +
-                ", byHand: " + byHand +
-                ", pickaxe canHarvestBlock: " + isPickAxe +
-                " ,pickaxe getDestroySpeed: " + pickAxeSpeed +
-                " ,shovelItem canHarvestBlock: " + isShovel +
-                " ,shovelItem getDestroySpeed: " + shovelSpeed +
-                " ,BlockHardness: " + blockHardness);
-
+        float pickAxeSpeed = pickaxeType.getMiningSpeedMultiplier(new ItemStack(pickaxeType), blockState);
+        float shovelSpeed = shovelType.getMiningSpeedMultiplier(new ItemStack(shovelType), blockState);
 
         int miningTime = -1;
 
         if (mineAllowed && (byHand || isPickAxe || isShovel)) {
             miningBlockTick++;
-            LOGGER.debug("byHand:" + byHand +"isPickAxe:" + isPickAxe + ", isShovel:" + isShovel + ", miningBlockTick:" + miningBlockTick);
 
             float miningSpeed;
 
@@ -468,9 +559,9 @@ public class ExcavationLogic {
     private boolean createRail(BlockPos blockPos) {
         if (isRailTrack(blockPos) || isRailTrack(blockPos.offset(Direction.DOWN, 1))) return false;
 
-        if (railTypeItem != null) {
-            if (minecartEntity.reduceInventoryItem(railTypeItem)) {
-                world.setBlockState(blockPos, railTypeItem.getBlock().getDefaultState().rotate(getRailRotation()));
+        if (railType != null) {
+            if (reduceInventoryItem(railType)) {
+                world.setBlockState(blockPos, railType.getBlock().getDefaultState().rotate(getRailRotation()));
 
                 return true;
             }
@@ -488,15 +579,15 @@ public class ExcavationLogic {
             return;
 
         if (miningDir == null) return;
-        if (torchTypeItem == null) return;
+        if (torchType == null) return;
 
         Block torchBlock;
-        if (torchTypeItem == Items.TORCH) {
+        if (torchType == Items.TORCH) {
             torchBlock = Blocks.WALL_TORCH;
-        } else if (torchTypeItem == Items.REDSTONE_TORCH) {
+        } else if (torchType == Items.REDSTONE_TORCH) {
             torchBlock = Blocks.REDSTONE_WALL_TORCH;
             blockPos = blockPos.down(); //one down
-        } else if (torchTypeItem == Items.SOUL_TORCH) {
+        } else if (torchType == Items.SOUL_TORCH) {
             torchBlock = Blocks.SOUL_WALL_TORCH;
         } else {
             torchBlock = null;
@@ -521,11 +612,24 @@ public class ExcavationLogic {
             }
 
             //place torch
-            if (torchDir != null && minecartEntity.reduceInventoryItem(torchTypeItem)) {
+            if (torchDir != null && reduceInventoryItem(torchType)) {
                 //todo rotate to the side
                 //world.setBlockState(blockPos, torchBlock.getDefaultState().with(.HORIZONTAL_FACING, torchDir));
                 lastTorchPos = blockPos;
             }
         }
+    }
+
+    private boolean reduceInventoryItem(Item item) {
+        for (int i = 0; i < excavatorInventory.size(); i++) {
+            ItemStack itemStack = excavatorInventory.getStack(i);
+
+            if (!itemStack.isEmpty() && itemStack.getItem() == item) {
+                itemStack.split(1);
+                return true;
+            }
+        }
+
+        return false;
     }
 }

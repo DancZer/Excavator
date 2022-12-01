@@ -16,7 +16,6 @@ import net.minecraft.entity.vehicle.StorageMinecartEntity;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
@@ -27,29 +26,19 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Hopper {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final TrackedData<Integer> MINING_STATUS;
-    private static final List<Item> Rails = new ArrayList<>();
-    private static final List<Item> Torches = new ArrayList<>();
 
     static {
         MINING_STATUS = DataTracker.registerData(ExcavatorMinecartEntity.class, TrackedDataHandlerRegistry.INTEGER);
-
-        Torches.add(Items.TORCH);
-        Torches.add(Items.REDSTONE_TORCH);
-        Torches.add(Items.SOUL_TORCH);
-
-        Rails.add(Items.RAIL);
-        Rails.add(Items.POWERED_RAIL);
     }
     private static final float CollectBlockWithHardness = 3f;
     private static final float MinecartPushForce = 0.005f;
 
-    private final ExcavationLogic excavationLogic = new ExcavationLogic(this);
+    private final ExcavationLogic excavationLogic = new ExcavationLogic(this, this);
     private boolean enabled = true;
     private int transferTicker = -1;
     private final BlockPos lastPosition = BlockPos.ORIGIN;
@@ -132,9 +121,20 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     public void tick() {
+        excavatorTick();
+        hopperTick();
+    }
+
+    private void excavatorTick() {
         ExcavationLogic.MiningStatus prevStatus = excavationLogic.miningStatus;
 
-        excavatorTick();
+        if (!this.world.isClient && this.isAlive() && this.isEnabled()) {
+            excavationLogic.updateExcavatorToolchain();
+
+            excavationLogic.tick();
+
+            setMiningStatus(excavationLogic.miningStatus);
+        }
 
         if(excavationLogic.miningStatus == ExcavationLogic.MiningStatus.Rolling){
             if(prevStatus == ExcavationLogic.MiningStatus.Mining){
@@ -146,81 +146,9 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
             setVelocity(Vec3d.ZERO);
         }
 
-        hopperTick();
-    }
-
-    private void excavatorTick() {
-        if (this.world.isClient && this.isAlive() && this.isEnabled()) {
-            excavationLogic.railTypeItem = findRailTypeItem();
-            excavationLogic.torchTypeItem = findTorchTypeItem();
-
-            boolean isFull = isInventoryFull();
-
-            LOGGER.debug("isFull: " + isFull + ", railTypeItem: "+ excavationLogic.railTypeItem+", torchTypeItem:"+ excavationLogic.torchTypeItem);
-
-            if (isFull) {
-                setMiningStatus(ExcavationLogic.MiningStatus.InventoryIsFull);
-            } else {
-                excavationLogic.tick();
-
-                setMiningStatus(excavationLogic.miningStatus);
-            }
-
-            LOGGER.debug("Logic MiningStatus: " + excavationLogic.miningStatus);
-
-            if (this.random.nextInt(4) == 0) {
-                showMiningStatus();
-            }
+        if (this.random.nextInt(4) == 0) {
+            showMiningStatus();
         }
-    }
-
-    public boolean isInventoryFull() {
-        for (int i = 0; i < size(); i++) {
-            ItemStack itemStack = getStack(i);
-            Item item = itemStack.getItem();
-
-            if (item == excavationLogic.railTypeItem) continue;
-            if (item == excavationLogic.torchTypeItem) continue;
-
-            if (itemStack.isEmpty() || itemStack.getCount() < itemStack.getMaxCount()) return false;
-        }
-
-        return true;
-    }
-
-    public BlockItem findRailTypeItem() {
-        return findInventoryItem(Rails);
-    }
-
-    public BlockItem findTorchTypeItem() {
-        return findInventoryItem(Torches);
-    }
-
-    public BlockItem findInventoryItem(List<Item> items) {
-        for (int i = 0; i < size(); i++) {
-            ItemStack itemStack = getStack(i);
-            Item item = itemStack.getItem();
-
-            LOGGER.debug("findInventoryItem: itemStack:"+itemStack.getName()+", item:" + item.getName());
-            if (!itemStack.isEmpty() && items.contains(item) && item instanceof BlockItem) {
-                return (BlockItem) item;
-            }
-        }
-
-        return null;
-    }
-
-    public boolean reduceInventoryItem(Item item) {
-        for (int i = 0; i < size(); i++) {
-            ItemStack itemStack = getStack(i);
-
-            if (!itemStack.isEmpty() && itemStack.getItem() == item) {
-                itemStack.split(1);
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private void showMiningStatus() {
@@ -245,7 +173,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
             case HazardUnknownFluid:
                 particleType = ParticleTypes.BUBBLE;
                 break;
-            case DepletedConsumable:
+            case MissingToolchain:
                 particleType = ParticleTypes.WITCH;
                 break;
             case InventoryIsFull:
@@ -273,7 +201,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     private void hopperTick() {
-        if (this.world.isClient && this.isAlive() && this.isEnabled()) {
+        if (!this.world.isClient && this.isAlive() && this.isEnabled()) {
             BlockPos blockpos = this.getBlockPos();
             if (blockpos.equals(this.lastPosition)) {
                 --this.transferTicker;
