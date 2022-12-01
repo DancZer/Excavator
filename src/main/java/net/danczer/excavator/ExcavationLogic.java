@@ -9,7 +9,7 @@ import net.minecraft.item.*;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.property.Property;
+import net.minecraft.state.property.Properties;
 import net.minecraft.tag.BlockTags;
 import net.minecraft.tag.FluidTags;
 import net.minecraft.util.BlockRotation;
@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavationLogic {
+
+    private static final int TICK_PER_SECOND = 20;
     private static final Logger LOGGER = LogManager.getLogger();
 
     public enum MiningStatus {
@@ -58,15 +60,18 @@ public class ExcavationLogic {
 
     public static final List<BlockItem> USABLE_RAIL_ITEMS = new ArrayList<>();
     public static final List<BlockItem> USABLE_TORCH_ITEMS = new ArrayList<>();
-
+    public static final List<Block> TORCH_WALL_BLOCKS = new ArrayList<>();
     public static final List<MiningToolItem> USABLE_PICKAXE_ITEMS = new ArrayList<>();
-
     public static final List<MiningToolItem> USABLE_SHOVEL_ITEMS = new ArrayList<>();
 
     static {
         USABLE_TORCH_ITEMS.add((BlockItem) Items.TORCH);
         USABLE_TORCH_ITEMS.add((BlockItem)Items.REDSTONE_TORCH);
         USABLE_TORCH_ITEMS.add((BlockItem)Items.SOUL_TORCH);
+
+        TORCH_WALL_BLOCKS.add(Blocks.WALL_TORCH);
+        TORCH_WALL_BLOCKS.add(Blocks.REDSTONE_WALL_TORCH);
+        TORCH_WALL_BLOCKS.add(Blocks.SOUL_WALL_TORCH);
 
         USABLE_RAIL_ITEMS.add((BlockItem)Items.RAIL);
         USABLE_RAIL_ITEMS.add((BlockItem)Items.POWERED_RAIL);
@@ -103,7 +108,7 @@ public class ExcavationLogic {
 
     private int miningBlockTick = 0;
     private int miningStackTick = 0;
-    private int previousProgress = 0;
+    private int previousMiningBlockTick = 0;
 
     public BlockItem railType;
     public BlockItem torchType;
@@ -328,7 +333,7 @@ public class ExcavationLogic {
         if (motion.lengthSquared() <= 0.0001d) {
             dir = miningDir;
         } else {
-            dir = Direction.getFacing(motion.x, motion.y, motion.z);
+            dir = Direction.getFacing(motion.x, 0, motion.z);
         }
 
         if (dir == null) return null;
@@ -526,41 +531,39 @@ public class ExcavationLogic {
         float pickAxeSpeed = pickaxeType.getMiningSpeedMultiplier(new ItemStack(pickaxeType), blockState);
         float shovelSpeed = shovelType.getMiningSpeedMultiplier(new ItemStack(shovelType), blockState);
 
-        int miningTime = -1;
+        if(isPickAxe && isShovel){
+            if(pickAxeSpeed > shovelSpeed){
+                isShovel = false;
+            }
+        }
 
         if (mineAllowed && (byHand || isPickAxe || isShovel)) {
             miningBlockTick++;
 
-            float miningSpeed;
+            float miningSpeed = 1.5f;
 
             if (isPickAxe) {
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_AXE_STRIP, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
-                miningTime = MiningTimePickAxe;
-                miningSpeed = pickAxeSpeed;
-            } else {
+                miningSpeed /= pickAxeSpeed;
+            } else if(isShovel){
                 world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
-                miningTime = MiningTimeShovel;
-                miningSpeed = shovelSpeed;
+                miningSpeed /= shovelSpeed;
+            }else{
+                world.playSound(0.0, 0.0, 0.0, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS, 1.0F, 1.0F, true);
             }
 
-            float damage = miningSpeed / blockHardness / 30f;
-            if (damage > 1) {
-                damage = 1f;
-            }
+            float timeToBreakTheBlock = blockHardness * miningSpeed * TICK_PER_SECOND;
 
-            float ticks = (float) Math.ceil(1 / damage);
-            float seconds = ticks / 20;
+            if (miningBlockTick > previousMiningBlockTick + 5) {
+                int progress = Math.min((int) ((miningBlockTick / timeToBreakTheBlock)*10f), 10);
 
-            LOGGER.debug("Mining time in ticks:" + ticks + ", sec:" + seconds);
-
-            int progress = (int) ((float) miningBlockTick / miningTime * 10.0F);
-            if (progress != previousProgress && progress % 5 == 0) {
                 world.setBlockBreakingInfo(0, miningPos, progress);
-                previousProgress = progress;
+                previousMiningBlockTick = miningBlockTick;
             }
 
-            if (miningBlockTick > miningTime) {
+            if (miningBlockTick > timeToBreakTheBlock) {
                 world.removeBlock(miningPos, true);
+                previousMiningBlockTick = 0;
                 return true;
             } else {
                 return false;
@@ -596,7 +599,7 @@ public class ExcavationLogic {
     }
 
     private BlockRotation getRailRotation() {
-       return BlockRotation.NONE; //TODO
+       return BlockRotation.NONE;
     }
 
     private void createTorch(BlockPos blockPos) {
@@ -607,8 +610,8 @@ public class ExcavationLogic {
 
         //find existing torch
         for (BlockItem torch : USABLE_TORCH_ITEMS) {
-            Block block = torch.getBlock();
-            if(targetBlockState.isOf(block)){
+            Block wallBlock = getTorchWallBlock(torch.getBlock());
+            if(targetBlockState.isOf(wallBlock)){
                 lastTorchPos = blockPos;
                 return;
             }
@@ -626,11 +629,27 @@ public class ExcavationLogic {
 
         //place torch
         if (torchDir != null && reduceInventoryItem(torchType)) {
+            Block wallBlock = getTorchWallBlock(torchType.getBlock());
+            BlockState wallBlockState = wallBlock.getDefaultState();
 
-            //TODO use torchDir
-            world.setBlockState(blockPos, torchType.getBlock().getDefaultState());
+            if(wallBlockState.contains(Properties.HORIZONTAL_FACING)){
+                world.setBlockState(blockPos, wallBlockState.with(Properties.HORIZONTAL_FACING, torchDir));
+            }else{
+                world.setBlockState(blockPos, wallBlockState);
+            }
+
             lastTorchPos = blockPos;
         }
+    }
+
+    private Block getTorchWallBlock(Block block){
+        for (Block wallBlock: TORCH_WALL_BLOCKS) {
+            if(block.getClass().isAssignableFrom(wallBlock.getClass())){
+                return wallBlock;
+            }
+        }
+
+        return block;
     }
 
     private boolean reduceInventoryItem(Item item) {
