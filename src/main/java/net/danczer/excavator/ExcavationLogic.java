@@ -9,6 +9,7 @@ import net.minecraft.item.*;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.state.property.Property;
 import net.minecraft.tag.BlockTags;
 import net.minecraft.tag.FluidTags;
 import net.minecraft.util.BlockRotation;
@@ -55,34 +56,34 @@ public class ExcavationLogic {
         }
     }
 
-    public static final List<Item> USABLE_RAIL_ITEMS = new ArrayList<>();
-    public static final List<Item> USABLE_TORCH_ITEMS = new ArrayList<>();
+    public static final List<BlockItem> USABLE_RAIL_ITEMS = new ArrayList<>();
+    public static final List<BlockItem> USABLE_TORCH_ITEMS = new ArrayList<>();
 
-    public static final List<Item> USABLE_PICKAXE_ITEMS = new ArrayList<>();
+    public static final List<MiningToolItem> USABLE_PICKAXE_ITEMS = new ArrayList<>();
 
-    public static final List<Item> USABLE_SHOVEL_ITEMS = new ArrayList<>();
+    public static final List<MiningToolItem> USABLE_SHOVEL_ITEMS = new ArrayList<>();
 
     static {
-        USABLE_TORCH_ITEMS.add(Items.TORCH);
-        USABLE_TORCH_ITEMS.add(Items.REDSTONE_TORCH);
-        USABLE_TORCH_ITEMS.add(Items.SOUL_TORCH);
+        USABLE_TORCH_ITEMS.add((BlockItem) Items.TORCH);
+        USABLE_TORCH_ITEMS.add((BlockItem)Items.REDSTONE_TORCH);
+        USABLE_TORCH_ITEMS.add((BlockItem)Items.SOUL_TORCH);
 
-        USABLE_RAIL_ITEMS.add(Items.RAIL);
-        USABLE_RAIL_ITEMS.add(Items.POWERED_RAIL);
+        USABLE_RAIL_ITEMS.add((BlockItem)Items.RAIL);
+        USABLE_RAIL_ITEMS.add((BlockItem)Items.POWERED_RAIL);
 
-        USABLE_PICKAXE_ITEMS.add(Items.NETHERITE_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add(Items.DIAMOND_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add(Items.GOLDEN_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add(Items.IRON_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add(Items.STONE_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add(Items.WOODEN_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.NETHERITE_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.DIAMOND_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.GOLDEN_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.IRON_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.STONE_PICKAXE);
+        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.WOODEN_PICKAXE);
 
-        USABLE_SHOVEL_ITEMS.add(Items.NETHERITE_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add(Items.DIAMOND_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add(Items.IRON_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add(Items.GOLDEN_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add(Items.STONE_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add(Items.WOODEN_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.NETHERITE_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.DIAMOND_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.IRON_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.GOLDEN_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.STONE_SHOVEL);
+        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.WOODEN_SHOVEL);
     }
 
     private final static int MiningTimeShovel = 8;
@@ -115,6 +116,30 @@ public class ExcavationLogic {
         this.minecartEntity = minecartEntity;
         this.excavatorInventory = inventory;
         this.world = minecartEntity.world;
+
+        if(isItemListContainsNull(USABLE_TORCH_ITEMS)){
+            throw new NullPointerException("Invalid Torch in the usable list for excavator!");
+        }
+
+        if(isItemListContainsNull(USABLE_RAIL_ITEMS)){
+            throw new NullPointerException("Invalid Rail in the usable list for excavator!");
+        }
+
+        if(isItemListContainsNull(USABLE_PICKAXE_ITEMS)){
+            throw new NullPointerException("Invalid Pickaxe in the usable list for excavator!");
+        }
+
+        if(isItemListContainsNull(USABLE_SHOVEL_ITEMS)){
+            throw new NullPointerException("Invalid Shovel in the usable list for excavator!");
+        }
+    }
+
+    private <T extends Item> boolean isItemListContainsNull(List<T> list) {
+        for (Object obj: list) {
+            if(obj == null) return true;
+        }
+
+        return false;
     }
 
     public void readNbt(NbtCompound compound) {
@@ -221,7 +246,7 @@ public class ExcavationLogic {
     }
 
     public boolean isToolchainSet(){
-        return railType != null && torchType != null && pickaxeType != null && shovelType != null;
+        return railType != null && pickaxeType != null && shovelType != null;
     }
 
     public void tick() {
@@ -575,48 +600,36 @@ public class ExcavationLogic {
     }
 
     private void createTorch(BlockPos blockPos) {
-        if (lastTorchPos != null && lastTorchPos.isWithinDistance(new Vec3i(blockPos.getX(), blockPos.getY(), blockPos.getZ()), TorchPlacementDistance))
-            return;
-
+        if (torchType == null) return; //optional
         if (miningDir == null) return;
-        if (torchType == null) return;
-
-        Block torchBlock;
-        if (torchType == Items.TORCH) {
-            torchBlock = Blocks.WALL_TORCH;
-        } else if (torchType == Items.REDSTONE_TORCH) {
-            torchBlock = Blocks.REDSTONE_WALL_TORCH;
-            blockPos = blockPos.down(); //one down
-        } else if (torchType == Items.SOUL_TORCH) {
-            torchBlock = Blocks.SOUL_WALL_TORCH;
-        } else {
-            torchBlock = null;
-        }
 
         BlockState targetBlockState = world.getBlockState(blockPos);
 
-        if (targetBlockState.isOf(Blocks.WALL_TORCH)
-                || targetBlockState.isOf(Blocks.REDSTONE_TORCH)
-                || targetBlockState.isOf(Blocks.SOUL_TORCH)) {
-            lastTorchPos = blockPos;
-            return;
+        //find existing torch
+        for (BlockItem torch : USABLE_TORCH_ITEMS) {
+            Block block = torch.getBlock();
+            if(targetBlockState.isOf(block)){
+                lastTorchPos = blockPos;
+                return;
+            }
         }
 
-        //create new torch
-        if (torchBlock != null) {
-            Direction torchDir = null;
-            if (!isAir(blockPos.offset(miningDir.rotateYClockwise(), 1))) {
-                torchDir = miningDir.rotateYCounterclockwise();
-            } else if (!isAir(blockPos.offset(miningDir.rotateYCounterclockwise(), 1))) {
-                torchDir = miningDir.rotateYClockwise();
-            }
+        if (lastTorchPos != null && lastTorchPos.isWithinDistance(new Vec3i(blockPos.getX(), blockPos.getY(), blockPos.getZ()), TorchPlacementDistance))
+            return;
 
-            //place torch
-            if (torchDir != null && reduceInventoryItem(torchType)) {
-                //todo rotate to the side
-                //world.setBlockState(blockPos, torchBlock.getDefaultState().with(.HORIZONTAL_FACING, torchDir));
-                lastTorchPos = blockPos;
-            }
+        Direction torchDir = null;
+        if (!isAir(blockPos.offset(miningDir.rotateYClockwise(), 1))) {
+            torchDir = miningDir.rotateYCounterclockwise();
+        } else if (!isAir(blockPos.offset(miningDir.rotateYCounterclockwise(), 1))) {
+            torchDir = miningDir.rotateYClockwise();
+        }
+
+        //place torch
+        if (torchDir != null && reduceInventoryItem(torchType)) {
+
+            //TODO use torchDir
+            world.setBlockState(blockPos, torchType.getBlock().getDefaultState());
+            lastTorchPos = blockPos;
         }
     }
 
