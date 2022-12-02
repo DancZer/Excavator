@@ -255,15 +255,6 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         return blockState.isToolRequired() && blockState.getHardness(world, getBlockPos()) >= CollectBlockWithHardness;
     }
 
-    public void kill() {
-        super.kill();
-        if (this.world.getGameRules().getBoolean(GameRules.DO_ENTITY_DROPS)) {
-            this.dropItem(Blocks.OBSERVER);
-            this.dropItem(Blocks.REDSTONE_BLOCK);
-            this.dropItem(Blocks.HOPPER);
-        }
-    }
-
     @Override
     public NbtCompound writeNbt(NbtCompound compound) {
         excavationLogic.writeNbt(compound);
