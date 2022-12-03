@@ -4,6 +4,7 @@
   "package": "net.danczer.excavator.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "train.AbstractMinecartEntityMixin"
   ],
   "client": [
   ],
