@@ -2,7 +2,7 @@
 
 A [Minecraft](https://minecraft.net) (Java Edition) mod based on [`Fabric`](https://fabricmc.net/). The Mod extends the minecart ecosystem with an Excavator and features to improve the overall minecart experience.
 
-![brief](doc/mining_area.jpg)
+![brief](doc/mining_area.png)
 
 [Screenshots in documentation readme here](doc/README.md).
 

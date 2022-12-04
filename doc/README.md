@@ -5,7 +5,7 @@
 ### Screenshots & Videos
 
 #### Mining area
-![mining_area.jpg](mining_area.jpg)
+![mining_area.jpg](mining_area.png)
 
 #### Mining area blueprint
 ![mining_area_blueprint.png](mining_area_blueprint.png)
