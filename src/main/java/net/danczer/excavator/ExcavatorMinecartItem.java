@@ -10,11 +10,12 @@ import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
-import net.minecraft.tag.BlockTags;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPointer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.event.GameEvent;
 
@@ -28,14 +29,15 @@ public class ExcavatorMinecartItem extends Item {
         private final ItemDispenserBehavior defaultBehavior = new ItemDispenserBehavior();
 
         public ItemStack dispenseSilently(BlockPointer pointer, ItemStack stack) {
-            Direction direction = pointer.getBlockState().get(DispenserBlock.FACING);
-            World world = pointer.getWorld();
-            double d = pointer.getX() + (double)direction.getOffsetX() * 1.125;
-            double e = Math.floor(pointer.getY()) + (double)direction.getOffsetY();
-            double f = pointer.getZ() + (double)direction.getOffsetZ() * 1.125;
-            BlockPos blockPos = pointer.getPos().offset(direction);
+            Direction direction = pointer.state().get(DispenserBlock.FACING);
+            World world = pointer.world();
+            Vec3d pos = pointer.centerPos();
+            double d = pos.getX() + (double)direction.getOffsetX() * 1.125;
+            double e = Math.floor(pos.getY()) + (double)direction.getOffsetY();
+            double f = pos.getZ() + (double)direction.getOffsetZ() * 1.125;
+            BlockPos blockPos = pointer.pos().offset(direction);
             BlockState blockState = world.getBlockState(blockPos);
-            RailShape railShape = blockState.getBlock() instanceof AbstractRailBlock ? (RailShape)blockState.get(((AbstractRailBlock)blockState.getBlock()).getShapeProperty()) : RailShape.NORTH_SOUTH;
+            RailShape railShape = blockState.getBlock() instanceof AbstractRailBlock ? blockState.get(((AbstractRailBlock)blockState.getBlock()).getShapeProperty()) : RailShape.NORTH_SOUTH;
             double g;
             if (blockState.isIn(BlockTags.RAILS)) {
                 if (railShape.isAscending()) {
@@ -49,7 +51,7 @@ public class ExcavatorMinecartItem extends Item {
                 }
 
                 BlockState blockState2 = world.getBlockState(blockPos.down());
-                RailShape railShape2 = blockState2.getBlock() instanceof AbstractRailBlock ? (RailShape)blockState2.get(((AbstractRailBlock)blockState2.getBlock()).getShapeProperty()) : RailShape.NORTH_SOUTH;
+                RailShape railShape2 = blockState2.getBlock() instanceof AbstractRailBlock ? blockState2.get(((AbstractRailBlock)blockState2.getBlock()).getShapeProperty()) : RailShape.NORTH_SOUTH;
                 if (direction != Direction.DOWN && railShape2.isAscending()) {
                     g = -0.4;
                 } else {
@@ -68,7 +70,7 @@ public class ExcavatorMinecartItem extends Item {
         }
 
         protected void playSound(BlockPointer pointer) {
-            pointer.getWorld().syncWorldEvent(1000, pointer.getPos(), 0);
+            pointer.world().syncWorldEvent(1000, pointer.pos(), 0);
         }
     };
     public ExcavatorMinecartItem(Settings settings) {
@@ -85,7 +87,7 @@ public class ExcavatorMinecartItem extends Item {
         } else {
             ItemStack itemStack = context.getStack();
             if (!world.isClient) {
-                RailShape railShape = blockState.getBlock() instanceof AbstractRailBlock ? (RailShape)blockState.get(((AbstractRailBlock)blockState.getBlock()).getShapeProperty()) : RailShape.NORTH_SOUTH;
+                RailShape railShape = blockState.getBlock() instanceof AbstractRailBlock ? blockState.get(((AbstractRailBlock)blockState.getBlock()).getShapeProperty()) : RailShape.NORTH_SOUTH;
                 double d = 0.0;
                 if (railShape.isAscending()) {
                     d = 0.5;

@@ -7,8 +7,6 @@ import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class ExcavatorScreenHandler extends ScreenHandler {
     public static final int InventorySize = 9;
@@ -17,7 +15,6 @@ public class ExcavatorScreenHandler extends ScreenHandler {
     public ExcavatorScreenHandler(int syncId, PlayerInventory playerInventory) {
         this(syncId, playerInventory, new SimpleInventory(InventorySize));
     }
-
 
     public ExcavatorScreenHandler(int syncId, PlayerInventory playerInventory, Inventory excavatorInventory) {
         super(ExcavatorMod.EXCAVATOR_SCREEN_HANDLER, syncId);
@@ -42,7 +39,8 @@ public class ExcavatorScreenHandler extends ScreenHandler {
 
     public boolean canUse(PlayerEntity player) { return this.excavatorInventory.canPlayerUse(player); }
 
-    public ItemStack transferSlot(PlayerEntity player, int index) {
+    @Override
+    public ItemStack quickMove(PlayerEntity player, int index) {
         ItemStack itemStack = ItemStack.EMPTY;
         Slot slot = getSlot(index);
         if (slot != null && slot.hasStack()) {
@@ -66,8 +64,9 @@ public class ExcavatorScreenHandler extends ScreenHandler {
         return itemStack;
     }
 
-    public void close(PlayerEntity player) {
-        super.close(player);
+    @Override
+    public void onClosed(PlayerEntity player) {
         this.excavatorInventory.onClose(player);
+        super.onClosed(player);
     }
 }
