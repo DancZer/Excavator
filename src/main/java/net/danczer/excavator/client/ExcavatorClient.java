@@ -1,6 +1,5 @@
 package net.danczer.excavator.client;
 
-import net.danczer.excavator.ExcavatorMinecartEntity;
 import net.danczer.excavator.ExcavatorMod;
 import net.danczer.excavator.ExcavatorScreen;
 import net.fabricmc.api.ClientModInitializer;

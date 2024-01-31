@@ -7,24 +7,20 @@ import net.minecraft.fluid.FluidState;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.*;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.state.property.Properties;
-import net.minecraft.tag.BlockTags;
-import net.minecraft.tag.FluidTags;
 import net.minecraft.util.BlockRotation;
 import net.minecraft.util.math.*;
 import net.minecraft.world.World;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavationLogic {
 
     private static final int TICK_PER_SECOND = 20;
-    private static final Logger LOGGER = LogManager.getLogger();
 
     public enum MiningStatus {
         Rolling(0),
@@ -91,8 +87,6 @@ public class ExcavationLogic {
         USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.WOODEN_SHOVEL);
     }
 
-    private final static int MiningTimeShovel = 8;
-    private final static int MiningTimePickAxe = 19;
     private final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
     private final static float MaxMiningHardness = 50f; //Obsidian
@@ -120,7 +114,7 @@ public class ExcavationLogic {
     public ExcavationLogic(AbstractMinecartEntity minecartEntity, Inventory inventory) {
         this.minecartEntity = minecartEntity;
         this.excavatorInventory = inventory;
-        this.world = minecartEntity.world;
+        this.world = minecartEntity.getWorld();
 
         if(isItemListContainsNull(USABLE_TORCH_ITEMS)){
             throw new NullPointerException("Invalid Torch in the usable list for excavator!");
@@ -343,30 +337,25 @@ public class ExcavationLogic {
 
         RailShape railShape = bs.get(railBlock.getShapeProperty());
 
-        boolean isMinecartTurning = false;
 
         //fix detection on turns
         if (dir == Direction.NORTH || dir == Direction.SOUTH) {
             if (railShape == RailShape.NORTH_WEST || railShape == RailShape.SOUTH_WEST) {
                 lastTorchPos = null;
                 dir = Direction.WEST;
-                isMinecartTurning = true;
             }
             if (railShape == RailShape.NORTH_EAST || railShape == RailShape.SOUTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.EAST;
-                isMinecartTurning = true;
             }
         } else if (dir == Direction.WEST || dir == Direction.EAST) {
             if (railShape == RailShape.NORTH_WEST || railShape == RailShape.NORTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.NORTH;
-                isMinecartTurning = true;
             }
             if (railShape == RailShape.SOUTH_WEST || railShape == RailShape.SOUTH_EAST) {
                 lastTorchPos = null;
                 dir = Direction.SOUTH;
-                isMinecartTurning = true;
             }
         }
 
@@ -562,7 +551,7 @@ public class ExcavationLogic {
             }
 
             if (miningBlockTick > timeToBreakTheBlock) {
-                world.removeBlock(miningPos, true);
+                world.breakBlock(miningPos, true);
                 previousMiningBlockTick = 0;
                 return true;
             } else {

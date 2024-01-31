@@ -11,7 +11,7 @@
     "website": "https://github.com/DancZer",
     "repo": "https://github.com/DancZer/Excavator"
   },
-  "license": "GPL-3.0",
+  "license": ["GPL-3.0"],
   "icon": "assets/excavator/logo.png",
   "environment": "*",
   "entrypoints": {
@@ -28,7 +28,7 @@
   "depends": {
     "fabricloader": ">=0.14.10",
     "fabric": "*",
-    "minecraft": "1.19.2"
+    "minecraft": "1.20.4"
   },
   "accessWidener": "excavator.accesswidener"
 }

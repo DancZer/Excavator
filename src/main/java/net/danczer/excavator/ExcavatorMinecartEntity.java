@@ -11,7 +11,6 @@ import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.entity.vehicle.StorageMinecartEntity;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
@@ -20,9 +19,9 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.predicate.entity.EntityPredicates;
+import net.minecraft.screen.ScreenHandler;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.slf4j.Logger;
 
@@ -36,7 +35,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         MINING_STATUS = DataTracker.registerData(ExcavatorMinecartEntity.class, TrackedDataHandlerRegistry.INTEGER);
     }
     private static final float CollectBlockWithHardness = 3f;
-    private static final float MinecartPushForce = 0.005f;
+    private static final float MinecartPushForce = 0.05f;
 
     private final ExcavationLogic excavationLogic = new ExcavationLogic(this, this);
     private boolean enabled = true;
@@ -60,17 +59,18 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         this.dataTracker.startTracking(MINING_STATUS, 0);
     }
 
-    public AbstractMinecartEntity.Type getMinecartType() {
+    @Override
+    public Type getMinecartType() {
         return null;
     }
 
-    protected Item getItem() {
+    public Item asItem(){
         return ExcavatorMod.EXCAVATOR_MINECART_ITEM;
     }
 
     public ItemStack getPickBlockStack()
     {
-        return new ItemStack(getItem());
+        return new ItemStack(asItem());
     }
 
     public BlockState getDefaultContainedBlock() {
@@ -85,8 +85,9 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         return ExcavatorScreenHandler.InventorySize;
     }
 
-    public ExcavatorScreenHandler getScreenHandler(int id, PlayerInventory playerInventoryIn) {
-        return new ExcavatorScreenHandler(id, playerInventoryIn, this);
+    @Override
+    protected ScreenHandler getScreenHandler(int syncId, PlayerInventory playerInventory) {
+        return new ExcavatorScreenHandler(syncId, playerInventory, this);
     }
 
     public boolean isEnabled() {
@@ -95,10 +96,6 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
-    }
-
-    public World getWorld() {
-        return this.world;
     }
 
     public double getHopperX() {
@@ -128,7 +125,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     private void excavatorTick() {
         ExcavationLogic.MiningStatus prevStatus = excavationLogic.miningStatus;
 
-        if (!this.world.isClient && this.isAlive() && this.isEnabled()) {
+        if (!this.getWorld().isClient && this.isAlive() && this.isEnabled()) {
             excavationLogic.updateExcavatorToolchain();
 
             excavationLogic.tick();
@@ -188,7 +185,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         }
 
         if (particleType != null) {
-            this.world.addParticle(particleType, this.getHopperX(), this.getHopperY() + 0.8D, this.getHopperZ(), 0.0D, 0.0D, 0.0D);
+            this.getWorld().addParticle(particleType, this.getHopperX(), this.getHopperY() + 0.8D, this.getHopperZ(), 0.0D, 0.0D, 0.0D);
         }
     }
 
@@ -201,7 +198,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     private void hopperTick() {
-        if (!this.world.isClient && this.isAlive() && this.isEnabled()) {
+        if (!this.getWorld().isClient && this.isAlive() && this.isEnabled()) {
             BlockPos blockpos = this.getBlockPos();
             if (blockpos.equals(this.lastPosition)) {
                 --this.transferTicker;
@@ -231,7 +228,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     public boolean captureDroppedItems() {
-        List<ItemEntity> list = this.world.getEntitiesByClass(ItemEntity.class, this.getBoundingBox().expand(0.25, 0.0, 0.25), EntityPredicates.VALID_ENTITY);
+        List<ItemEntity> list = this.getWorld().getEntitiesByClass(ItemEntity.class, this.getBoundingBox().expand(0.25, 0.0, 0.25), EntityPredicates.VALID_ENTITY);
 
         for (ItemEntity itemEntity : list) {
             Item item = itemEntity.getStack().getItem();
@@ -252,7 +249,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     private boolean shouldCollectItem(BlockItem blockItem){
         BlockState blockState = blockItem.getBlock().getDefaultState();
 
-        return blockState.isToolRequired() && blockState.getHardness(world, getBlockPos()) >= CollectBlockWithHardness;
+        return blockState.isToolRequired() && blockState.getHardness(getWorld(), getBlockPos()) >= CollectBlockWithHardness;
     }
 
     @Override

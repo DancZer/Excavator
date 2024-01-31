@@ -1,2 +1,2 @@
-accessWidener	v1 named
-extendable method net/minecraft/entity/vehicle/AbstractMinecartEntity getItem ()Lnet/minecraft/item/Item;
+accessWidener	v2 named
+extendable method net/minecraft/entity/vehicle/VehicleEntity asItem ()Lnet/minecraft/item/Item;
